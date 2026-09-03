@@ -1,0 +1,28 @@
+{% extends "base.twig" %}
+
+{% block title %}Reset your password{% endblock %}
+
+{% block header_color %}#1d273b{% endblock %}
+
+{% block heading %}Reset your password{% endblock %}
+
+{% block content %}
+<p style="margin: 0 0 16px;">
+	Hello {{ user.firstname }},
+</p>
+<p style="margin: 0 0 16px;">
+	We received a request to reset your password. Click the button below to set a new password. The link is valid for 24 hours.
+</p>
+<p style="margin: 0 0 16px; text-align: center;">
+	<a href="{{ reset_url }}" style="display: inline-block; background-color: #1d273b; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: bold;">Set a new password</a>
+</p>
+<p style="margin: 0 0 16px;">
+	If the button doesn't work, copy and paste this link into your browser:
+</p>
+<p style="margin: 0 0 16px; word-break: break-all;">
+	<a href="{{ reset_url }}" style="color: #1d273b;">{{ reset_url }}</a>
+</p>
+<p style="margin: 0;">
+	If you didn't request this, you can ignore this email; your password won't change.
+</p>
+{% endblock content %}

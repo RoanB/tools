@@ -1,0 +1,48 @@
+{
+"config": {
+		"vendor-dir": "lib/external/packages",
+		"allow-plugins": {
+			"composer/installers": true,
+			"oomphinc/composer-installers-extender": true,
+			"php-http/discovery": false
+		}
+	},
+	"extra": {
+	   "installer-types": ["bower-asset", "npm-asset"],
+	   "installer-paths": {
+		   "lib/external/assets/{$name}/": ["type:bower-asset", "type:npm-asset"]
+	   }
+	},
+	"autoload": {
+		"psr-4": {"Event\\": "lib/event"}
+	},
+	 "repositories": [
+		{
+			"type": "composer",
+			"url": "https://asset-packagist.org"
+		}
+	],
+    "require": {
+				"tigron/skeleton": "^4.0",
+				"tigron/skeleton-i18n": "^4.1",
+				"tigron/skeleton-file": "^2.0",
+				"tigron/skeleton-pager": "^3.0",
+				"tigron/skeleton-transaction": "^5.1",
+				"npm-asset/tabler--core": "^1.4",
+				"tigron/skeleton-file-picture": "^0.2.26",
+				"npm-asset/jquery": "^4.0",
+				"npm-asset/select2": "^4.1",
+				"apalfrey/select2-bootstrap-5-theme": "^1.3",
+				"bower-asset/tigron-confirm-modal": "^0.0.11",
+				"tigron/skeleton-email": "^0.4.2",
+				"sentry/sdk": "^4.0",
+				"tigron/skeleton-error": "^0.2.9"
+		},
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Roan Buysse",
+            "email": "roan@buysse.be"
+        }
+    ]
+}

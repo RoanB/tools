@@ -1,0 +1,42 @@
+{% import "_default/macro.tabler.twig" as tabler %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+	<title>{% block title %}Tools{% endblock title %}</title>
+
+	<link rel="stylesheet" href="/tabler--core/dist/css/tabler.min.css">
+	<link rel="stylesheet" href="/tabler-icons.min.css">
+	<link rel="stylesheet" href="/base.css">
+	{% block header_css %}{% endblock header_css %}
+</head>
+<body>
+	<div class="page page-center">
+		<div class="container container-tight py-4">
+			<div class="text-center mb-4">
+				<a href="/" class="navbar-brand navbar-brand-autodark">
+					<img src="/logo_black.png" alt="Tools" style="height: 100px;">
+				</a>
+			</div>
+			{% block content %}{% endblock content %}
+		</div>
+	</div>
+
+	<script src="/jquery/dist/jquery.min.js"></script>
+	<script src="/tabler--core/dist/js/tabler.min.js"></script>
+	<script>
+		function toggle_password() {
+			if ($('#password').attr('type') === 'password') {
+				$('#password').attr('type', 'text');
+				$('#show_password').html('{{ tabler.icon("eye-off") }}');
+			} else {
+				$('#password').attr('type', 'password');
+				$('#show_password').html('{{ tabler.icon("eye") }}');
+			}
+		}
+	</script>
+	<script src="/base.js"></script>
+	{% block javascript %}{% endblock javascript %}
+</body>
+</html>

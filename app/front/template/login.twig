@@ -1,0 +1,47 @@
+{% import "_default/macro.tabler.twig" as tabler %}
+{% extends "_default/layout.login.twig" %}
+{% block content %}
+	{% if env.sticky_session.message == 'password_reset_email_sent' %}
+		{{ tabler.alert('success', 'If this email address is known to us, you\'ll receive a link to reset your password.') }}
+	{% elseif env.sticky_session.message == 'password_reset_success' %}
+		{{ tabler.alert('success', 'Your new password was saved successfully. You can now log in!') }}
+	{% elseif env.sticky_session.message == 'reset_token_invalid' %}
+		{{ tabler.alert('danger', 'This password reset link is invalid or has expired. Please request a new link.') }}
+	{% endif %}
+
+	<div class="card card-md">
+		<div class="card-body">
+			<h2 class="card-title text-center mb-4">Login</h2>
+
+			{% if error is not empty %}
+			{{ tabler.alert('danger', error) }}
+			{% endif %}
+
+			<form method="post" action="/login?action=login" autocomplete="off">
+				<div class="mb-3">
+					<label class="form-label" for="email">Email address</label>
+					<input type="email" class="form-control" id="email" name="email" placeholder="your@email.com" required autofocus>
+				</div>
+				<div class="mb-3">
+					<label class="form-label" for="password">Password</label>
+					<div class="input-group input-group-flat">
+						<input type="password" class="form-control" id="password" name="password" placeholder="Your password" required>
+						<span class="input-group-text">
+							<a href="javascript:toggle_password()" class="link-secondary" id="show_password">
+								{{ tabler.icon('eye') }}
+							</a>
+						</span>
+					</div>
+				</div>
+				<div class="form-footer">
+					<button type="submit" class="btn btn-primary w-100">
+						Sign in
+					</button>
+				</div>
+				<div class="text-center mt-3">
+					<a href="/login?action=forgot_password" class="link-secondary">Forgot password?</a>
+				</div>
+			</form>
+		</div>
+	</div>
+{% endblock content %}

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+	<title>{{ page_title|default('Tools') }}</title>
+
+	<link rel="stylesheet" href="/tabler--core/dist/css/tabler.min.css">
+	<link rel="stylesheet" href="/tabler-icons.min.css">
+	<link rel="stylesheet" href="/base.css">
+	{% block header_css %}{% endblock header_css %}
+</head>
+<body>
+	<div class="page">
+		{% block navbar %}
+		<header class="navbar navbar-expand-md d-print-none">
+			<div class="container-xl">
+				<div class="navbar-brand">
+					<a href="/" class="text-white text-decoration-none fw-bold d-flex align-items-center gap-2">
+						<img src="/logo.png" alt="Tools" style="height: 36px;">
+						<span>Tools</span>
+					</a>
+				</div>
+				<div class="navbar-nav flex-row ms-auto">
+					<div class="nav-item dropdown">
+						<a href="#" class="nav-link text-white d-flex align-items-center gap-2 dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+							<span class="avatar avatar-sm text-white" style="background-color: rgba(255, 255, 255, 0.25);">
+								{{ user.email|first|upper }}
+							</span>
+							{% if user.email is not empty %}
+								<span class="d-none d-md-inline">{{ user.email }}</span>
+							{% endif %}
+						</a>
+						<div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
+							{% if user.email is not empty %}
+								<div class="dropdown-header">
+									<div class="text-secondary"><small>{{ user.email }}</small></div>
+								</div>
+								<div class="dropdown-divider"></div>
+							{% endif %}
+							<a class="dropdown-item" href="/login?action=logout">
+								<i class="ti ti-logout me-2"></i> Logout
+							</a>
+						</div>
+					</div>
+				</div>
+			</div>
+		</header>
+		{% endblock navbar %}
+
+		<div class="page-wrapper">
+			<div class="page-body">
+				<div class="container-xl">
+					{% block content %}{% endblock content %}
+				</div>
+			</div>
+
+			{% block footer %}
+			<footer class="footer footer-transparent d-print-none">
+				<div class="container-xl">
+					<div class="row text-center align-items-center flex-row-reverse">
+						<div class="col-auto">
+							&copy; {{ 'now'|date('Y') }} Tools
+						</div>
+					</div>
+				</div>
+			</footer>
+			{% endblock footer %}
+		</div>
+	</div>
+
+	<script src="/jquery/dist/jquery.min.js"></script>
+	<script src="/tabler--core/dist/js/tabler.min.js"></script>
+	<script src="/base.js"></script>
+	{% block javascript %}{% endblock javascript %}
+</body>
+</html>

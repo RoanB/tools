@@ -1,0 +1,119 @@
+{% macro icon_svg(name, class, extra) %}
+	<svg height="24" class="icon icon-tabler mx-0 {{ class }}" {{ extra|raw }}>
+		<use xlink:href="/tabler--icons/tabler-sprite.svg#tabler-{{ name }}" />
+	</svg>
+{% endmacro %}
+
+{% macro icon(name, class, extra) %}<i class="ti ti-{{ name }}{% if class != 'icon-xl' %} icon{% endif %} {{ class }}" {{ extra|raw }}></i>{% endmacro %}
+
+{# {{ tabler.alert('info', 'Already submitted'|trans, 'This report has already been submitted'|trans) }} #}
+
+{% macro alert(type, message, secondary_message = '', dismissable = false, margin = true, row = false) %}
+	{% if type == 'success' %}
+		{% set icon_name = 'circle-check' %}
+	{% elseif type == 'danger' %}
+		{% set icon_name = 'alert-circle' %}
+	{% elseif type == 'info' %}
+		{% set icon_name = 'info-circle' %}
+	{% elseif type == 'warning' %}
+		{% set icon_name = 'alert-triangle' %}
+	{% endif %}
+
+	<div class="{% if row == true %}row {% endif %}alert alert-{{ type }}{% if margin == false %} m-0{% endif %}{% if dismissable %} alert-dismissible{% endif %}" role="alert">
+		<div class="alert-icon">
+			<i class="ti ti-{{ icon_name }} {{ type }}"></i>
+		</div>
+			{% if secondary_message is not empty %}
+				<div>
+					<h4 class="alert-heading">{{ message|raw }}</h4>
+					<div class="alert-description">{{ secondary_message|raw }}</div>
+				</div>
+			{% else %}
+				{{ message|raw }}
+			{% endif %}
+		{% if dismissable %}
+			<a class="btn-close" data-bs-dismiss="alert" aria-label="close"></a>
+		{% endif %}
+	</div>
+{% endmacro %}
+
+
+{% macro show_errors(errors) %}
+	<ul class="mb-0">
+		{% for key, message in errors %}
+			<li>{{ key }}: {{ message|trans }}</li>
+		{% endfor %}
+	</ul>
+{% endmacro %}
+
+{% macro star_rating(score) %}
+	{% set score = score|round / 2 %}
+	<div class="col-auto text-purple">
+		{% for i in 1..5 %}
+			{% set icon = 'star' %}
+			{% if score >= i %}
+				{% set icon = 'star-filled' %}
+			{% elseif score + 1 - i == 0.5 %}
+				{% set icon = 'star-half-filled' %}
+			{% endif %}
+			<svg width="24" height="24" class="icon icon-tabler {{ action }}">
+				<use xlink:href="/tabler--icons/tabler-sprite.svg#tabler-{{ icon }}" />
+			</svg>
+		{% endfor %}
+	</div>
+{% endmacro %}
+
+{% macro progress_bar(step, total_steps) %}
+	<ul class="steps steps-counter mt-3">
+		{% for step_counter in 1..total_steps %}
+			<li class="step-item {% if step == step_counter %} active {% endif %}"></li>
+		{% endfor %}
+	</ul>
+{% endmacro %}
+
+{% macro progress_bar_vertical (step, step_titles) %}
+	<div class="card-body">
+		<ul class="steps steps-counter steps-vertical">
+			{% for step_item in step_titles %}
+				<li class="step-item  {% if step == loop.index %} active {% endif %}">
+				<p class="text-truncate">
+					{{ step_item|trans }}
+				</p>
+				</li>
+			{% endfor %}
+		</ul>
+	</div>
+{% endmacro %}
+
+{% macro not_found (properties, title, sub_title) %}
+	<div class="empty">
+		<p class="empty-title">{{ title|trans }}</p>
+		<p class="empty-subtitle text-secondary">
+			{{ sub_title|trans }}
+		</p>
+		<div class="empty-action">
+			<div class="nav-item dropdown d-none d-md-flex me-3">
+				<a href="#" class="btn dropdown-toggle text-muted" data-bs-toggle="dropdown">
+					<i class="fa-solid fa-home"></i>
+					<span id="active-property">
+						{% if env.session.selected_property is not empty %}
+							{{ env.session.selected_property.name }}
+						{% else %}
+							{% trans 'None selected' %}
+						{% endif %}
+					</span>
+				</a>
+				<div class="dropdown-menu dropdown-menu-arrow">
+					<a class="dropdown-item mt-1 property-selector {% if loop.last %} mb-1 {% endif %} {% if env.session.selected_property.id is empty %} fw-bold {% endif %}" data-property-id="" href="#">
+						{% trans 'None selected' %}
+					</a>
+					{% for property in properties %}
+						<a class="dropdown-item mt-1 property-selector {% if loop.last %} mb-1 {% endif %} {% if env.session.selected_property.id == property.id %} fw-bold {% endif %}" data-property-id="{{ property.id }}" href="#">
+							{{ property.name }}
+						</a>
+					{% endfor %}
+				</div>
+			</div>
+		</div>
+	</div>
+{% endmacro %}

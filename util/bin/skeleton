@@ -1,0 +1,20 @@
+#!/usr/bin/env php
+<?php
+ini_set('memory_limit', '512M');
+ini_set('display_errors', 1);
+
+include __DIR__ . '/../../lib/base/Bootstrap.php';
+Bootstrap::boot();
+/**
+ * This is the Skeleton Console Application
+ *
+ * @author Gerry Demaret <gerry@tigron.be>
+ * @author Christophe Gosiau <christophe@tigron.be>
+ * @author David Vandemaele <david@tigron.be>
+ */
+
+use \Skeleton\Console\Application;
+
+$application = new Application();
+$application->add_commands();
+$application->run();

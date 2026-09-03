@@ -1,0 +1,280 @@
+<?php
+/**
+ * Base CSS
+ *
+ * Custom styles for the tools application. Tabler is loaded from the npm-asset
+ * package via the layout templates. Styling mirrors the vvsjongeren look:
+ * forest-green + amber brand palette, Fredoka display font and tabler-icons.
+ */
+
+/*
+ * Fredoka — display font for page headings (SIL OFL, see OFL-Fredoka.txt)
+ */
+@font-face {
+	font-family: 'Fredoka';
+	font-style: normal;
+	font-weight: 300 700;
+	font-display: swap;
+	src: url('/font/fredoka-latin-ext.woff2') format('woff2-variations');
+	unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+	font-family: 'Fredoka';
+	font-style: normal;
+	font-weight: 300 700;
+	font-display: swap;
+	src: url('/font/fredoka-latin.woff2') format('woff2-variations');
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Override some defaults */
+:root {
+	--tblr-primary: #4c8c4a;
+	--tblr-primary-rgb: 76, 140, 74;
+	--tblr-secondary: #2f4b34;
+	--tblr-secondary-rgb: 47, 75, 52;
+	--tblr-highlight-bg: #e8a13c;
+	--tblr-purple-rgb: 232, 84, 228;
+	--fc-bg-event-opacity: 1;
+	--tblr-dark: #2b2f2e;
+	--tblr-dark-rgb: 43, 47, 46;
+
+	/* Body */
+	--tblr-body-color: var(--tblr-dark);
+	--tblr-body-color-rgb: 43, 47, 46;
+	--tblr-body-bg: #f6f3ed;
+	--tblr-body-bg-rgb: 246, 243, 237;
+	--tblr-emphasis-color: var(--tblr-secondary);
+	--tblr-emphasis-color-rgb: 47, 75, 52;
+	--tblr-secondary-color: var(--tblr-dark);
+	--tblr-secondary-color-rgb: 43, 47, 46;
+	--tblr-secondary-bg: var(--tblr-light);
+	--tblr-secondary-bg-rgb: var(--tblr-light-rgb);
+	--tblr-tertiary-color: #b3ad9f;
+	--tblr-tertiary-color-rgb: 179, 173, 159;
+	--tblr-tertiary-bg: var(--tblr-light);
+	--tblr-tertiary-bg-rgb: var(--tblr-light-rgb);
+	--tblr-link-color: var(--tblr-primary);
+	--tblr-link-color-rgb: var(--tblr-primary-rgb);
+	--tblr-code-color: var(--tblr-gray-600);
+	--tblr-border-color: var(--tblr-border-color-translucent);
+	--tblr-box-shadow: rgba(var(--tblr-body-color-rgb), 0.04) 0 2px 4px 0;
+	--tblr-box-shadow-sm: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+	--tblr-box-shadow-lg: 0 1rem 3rem rgba(246, 243, 237, 1.0);
+	--tblr-focus-ring-color: rgba(var(--tblr-primary-rgb), 0.25);
+	--tblr-form-valid-color: #4c8c4a;
+	--tblr-form-valid-border-color: #4c8c4a;
+	--tblr-form-invalid-color: #c0392b;
+	--tblr-form-invalid-border-color: #c0392b;
+	--tblr-icon-color: var(--tblr-light);
+	--tblr-disabled-color: #b3ad9f;
+
+	/* Warnings: */
+	--tblr-success: #4c8c4a;
+	--tblr-info: #2980b9;
+	--tblr-warning: #e8a13c;
+	--tblr-danger: #c0392b;
+	--tblr-success-rgb: 76, 140, 74;
+	--tblr-info-rgb: 41, 128, 185;
+	--tblr-warning-rgb: 232, 161, 60;
+
+	/* Brand amber accent */
+	--amber: #e8a13c;
+	--amber-dark: #8a5a12;
+	--amber-rgb: 232, 161, 60;
+	--amber-tint: rgba(var(--amber-rgb), 0.12);
+	--tblr-font-display: 'Fredoka', 'Inter', -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+}
+
+:host, :root {
+	margin-left: 0;
+	margin-right: 0;
+}
+
+.badge {
+	--tblr-badge-color: var(--tblr-dark) !important;
+}
+
+.navbar {
+	--tblr-navbar-bg: #2f4b34 !important;
+	--tblr-navbar-toggler-icon-bg: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.9%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+}
+
+.navbar .nav-link,
+.navbar .dropdown-toggle {
+	color: #fff !important;
+}
+
+.navbar .nav-link:hover,
+.navbar .nav-link:focus,
+.navbar .dropdown-toggle:hover,
+.navbar .dropdown-toggle:focus {
+	color: #fff !important;
+}
+
+.navbar .nav-link.active,
+.navbar .nav-link.show,
+.navbar .dropdown-toggle.show {
+	color: #e8a13c !important;
+}
+
+.navbar .navbar-toggler {
+	color: #fff !important;
+	border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.navbar .navbar-toggler:focus {
+	box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.25) !important;
+}
+
+@media (max-width: 767.98px) {
+	.navbar .dropdown-menu {
+		background-color: #2f4b34 !important;
+		border-color: rgba(255, 255, 255, 0.15) !important;
+		box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+	}
+
+	.navbar .dropdown-menu .dropdown-item {
+		color: rgba(255, 255, 255, 0.8) !important;
+	}
+
+	.navbar .dropdown-menu .dropdown-item:hover,
+	.navbar .dropdown-menu .dropdown-item:focus {
+		color: #fff !important;
+		background-color: rgba(255, 255, 255, 0.15) !important;
+	}
+
+	.navbar .dropdown-menu .dropdown-divider {
+		border-color: rgba(255, 255, 255, 0.2) !important;
+	}
+
+	.navbar .dropdown-menu .dropdown-header {
+		color: rgba(255, 255, 255, 0.6) !important;
+	}
+}
+
+.page {
+	min-height: 100vh;
+}
+
+/* Form icons: add spacing between icon and text */
+.card-header .ti + .card-title,
+.card-header .ti + h3 {
+	margin-left: 0.5rem;
+}
+
+/* Invalid / valid feedback icon: position right */
+.form-control.is-invalid,
+.form-select.is-invalid {
+	background-position: right 0.5rem center;
+}
+
+.form-control.is-valid,
+.form-select.is-valid {
+	background-position: right 0.5rem center;
+}
+
+/* Accent bar on cards */
+.card-accent {
+	position: relative;
+	overflow: hidden;
+}
+
+.card-accent::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 3px;
+	background: linear-gradient(90deg, #4c8c4a 0%, #e8a13c 100%);
+}
+
+/* Table: smaller font for dense lists */
+.table-compact {
+	font-size: 0.8125rem;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Display headings
+   ───────────────────────────────────────────────────────────── */
+
+.font-display,
+.page-heading {
+	font-family: var(--tblr-font-display);
+	font-weight: 700;
+}
+
+.page-heading {
+	font-size: clamp(1.5rem, 2vw + 0.75rem, 2rem);
+}
+
+/* Warm accent colours */
+.text-amber {
+	color: var(--amber-dark);
+}
+
+.badge-amber {
+	color: #fff;
+	background: var(--amber);
+}
+
+.badge-amber-lt {
+	color: var(--amber-dark);
+	background: var(--amber-tint);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Shared: subtle consistency polish
+   ───────────────────────────────────────────────────────────── */
+
+/* Unified page header */
+.admin-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	flex-wrap: wrap;
+	margin-bottom: 1.25rem;
+}
+
+.admin-header h1 {
+	margin-bottom: 0;
+}
+
+.page-actions {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	flex-wrap: wrap;
+}
+
+/* Headings in cards follow the base font, slightly tightened */
+.card .card-title {
+	font-weight: 650;
+}
+
+/* Softer, consistent link focus ring */
+a:focus-visible,
+button:focus-visible {
+	outline: 2px solid rgba(var(--tblr-primary-rgb), 0.7);
+	outline-offset: 2px;
+}
+
+/* Table header + row polish */
+.table thead th {
+	font-size: 0.75rem;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--tblr-secondary-color);
+}
+
+.table tbody tr:hover {
+	background-color: rgba(var(--tblr-primary-rgb), 0.04);
+}
+
+/* Login page: light background so the card stands out */
+body {
+	background-color: var(--tblr-body-bg);
+}
