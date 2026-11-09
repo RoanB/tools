@@ -92,8 +92,17 @@
 	margin-right: 0;
 }
 
-.badge {
+/*
+ * Badge text colour: plain badges (no background class) sit on a light
+ * surface and get the dark body colour; solid bg-* badges get white text,
+ * otherwise the default secondary badge colour stays dark-on-dark.
+ */
+.badge:not([class*=" bg-"]):not([class*=" text-bg-"]) {
 	--tblr-badge-color: var(--tblr-dark) !important;
+}
+
+.badge[class*=" bg-"] {
+	--tblr-badge-color: #f9fafb !important;
 }
 
 .navbar {
@@ -196,6 +205,21 @@
 	font-size: 0.8125rem;
 }
 
+/* Select2: match the form-select look of the theme */
+.select2-container--bootstrap-5 .select2-selection,
+.select2-container--bootstrap-5 .select2-dropdown .select2-search .select2-search__field,
+.select2-container--bootstrap-5 .select2-dropdown .select2-results__options .select2-results__option,
+.select2-container--bootstrap-5 .select2-selection--multiple .select2-selection__rendered .select2-selection__choice {
+	font-size: 0.875rem;
+}
+
+.form-select-sm ~ .select2-container--bootstrap-5 .select2-selection,
+.form-select-sm ~ .select2-container--bootstrap-5 .select2-dropdown .select2-search .select2-search__field,
+.form-select-sm ~ .select2-container--bootstrap-5 .select2-dropdown .select2-results__options .select2-results__option,
+.form-select-sm ~ .select2-container--bootstrap-5 .select2-selection--multiple .select2-selection__rendered .select2-selection__choice {
+	font-size: 0.8125rem;
+}
+
 /* ─────────────────────────────────────────────────────────────
    Display headings
    ───────────────────────────────────────────────────────────── */
@@ -255,6 +279,19 @@
 	font-weight: 650;
 }
 
+/*
+ * Subtitle line under a card title. Tabler's own .card-subtitle maps its
+ * colour to an empty CSS variable in this version, so it renders in the
+ * full-strength body colour and reads like a second heading; .sub is the
+ * muted small text a subtitle should be.
+ */
+.sub {
+	color: var(--tblr-secondary);
+	font-size: 0.875rem;
+	font-weight: 400;
+	margin-top: calc(-0.5 * var(--tblr-card-title-spacer-y));
+}
+
 /* Softer, consistent link focus ring */
 a:focus-visible,
 button:focus-visible {
@@ -277,4 +314,43 @@ button:focus-visible {
 /* Login page: light background so the card stands out */
 body {
 	background-color: var(--tblr-body-bg);
+}
+
+/*
+ * Full-page loader
+ *
+ * Overlay shown while the browser waits for a slow server-side render
+ * (navigation triggered by a link click or form submit, see base.js).
+ * The [hidden] selector is repeated because the display:flex above the
+ * UA stylesheet rule would otherwise win.
+ */
+.page-loader {
+	position: fixed;
+	inset: 0;
+	z-index: 10000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: rgba(248, 249, 250, 0.75);
+	backdrop-filter: blur(2px);
+}
+
+.page-loader[hidden] {
+	display: none;
+}
+
+.page-loader-box {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 1.5rem 2.5rem;
+	background: #ffffff;
+	border-radius: 8px;
+	box-shadow: 0 1px 6px rgba(0, 0, 0, 0.1);
+}
+
+.page-loader-text {
+	color: var(--tblr-secondary, #6b737d);
+	font-size: 0.875rem;
 }

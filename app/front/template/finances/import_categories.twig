@@ -1,0 +1,92 @@
+{% import "_default/macro.tabler.twig" as tabler %}
+{% extends "_default/layout.base.twig" %}
+
+{% block title %}Import categories · Tools{% endblock title %}
+
+{% block content %}
+	<div class="row g-3">
+		<div class="col-12 col-md-2 col-xl-2">
+			{% include "finances/_sidebar.twig" with { compact: true } %}
+		</div>
+
+		<div class="col-12 col-md-10 col-xl-10">
+			<div class="d-flex justify-content-between align-items-center mb-3">
+				<h1 class="page-heading mb-0">Import categories</h1>
+				<a href="/finances/transactions" class="btn btn-outline-secondary">
+					<i class="ti ti-arrow-left me-1"></i>Back to transactions
+				</a>
+			</div>
+
+			<p class="text-secondary">
+				Upload a CSV previously downloaded from the transactions list
+				("Export CSV") with the <strong>category</strong> column filled in.
+				Rows are matched on the transaction <span class="font-monospace">id</span> and
+				categories on their exact name; everything else in the file is
+				ignored. An empty category cell leaves the row untouched.
+			</p>
+
+			{% if diff is defined %}
+				<div class="card mb-3">
+					<div class="card-header">
+						<h3 class="card-title">Preview</h3>
+						<span class="text-secondary small">
+							{{ diff.changes|length }} row{{ diff.changes|length == 1 ? '' : 's' }} will change
+							{% if diff.skipped_ids > 0 %}· {{ diff.skipped_ids }} skipped (unknown or archived id){% endif %}
+							{% if diff.skipped_names|length > 0 %}· {{ diff.skipped_names|length }} skipped (unknown category name){% endif %}
+						</span>
+					</div>
+					<div class="table-responsive">
+						<table class="table card-table table-vcenter">
+							<thead>
+								<tr>
+									<th>Transaction id</th>
+									<th>Current category</th>
+									<th></th>
+									<th>New category</th>
+								</tr>
+							</thead>
+							<tbody>
+								{% for transaction_id, change in diff.changes %}
+									<tr>
+										<td class="font-monospace">{{ transaction_id }}</td>
+										<td>{{ change.from ?: '—' }}</td>
+										<td class="text-secondary"><i class="ti ti-arrow-right"></i></td>
+										<td>{{ change.to }}</td>
+									</tr>
+								{% endfor %}
+							</tbody>
+						</table>
+					</div>
+					<div class="card-footer d-flex justify-content-end gap-2">
+						<a href="/finances/transactions?action=import_categories" class="btn btn-outline-secondary">Cancel</a>
+						<form action="/finances/transactions?action=import_categories_confirm" method="post" class="d-inline">
+							<button type="submit" class="btn btn-primary">
+								<i class="ti ti-check me-1"></i>Apply {{ diff.changes|length }} change{{ diff.changes|length == 1 ? '' : 's' }}
+							</button>
+						</form>
+					</div>
+				</div>
+			{% else %}
+				<div class="card">
+					<div class="card-body">
+						<form action="/finances/transactions?action=import_categories" method="post" enctype="multipart/form-data">
+							<div class="mb-3">
+								<label class="form-label" for="file">CSV file</label>
+								<input type="file" name="file" id="file" class="form-control" accept=".csv,text/csv" required>
+								<div class="form-text">
+									The first column must hold the transaction id, the
+									eighth the category name — exactly the layout of the
+									export. Only rows whose category would actually
+									change are applied.
+								</div>
+							</div>
+							<button type="submit" name="import_preview" value="1" class="btn btn-primary">
+								<i class="ti ti-upload me-1"></i>Preview
+							</button>
+						</form>
+					</div>
+				</div>
+			{% endif %}
+		</div>
+	</div>
+{% endblock content %}

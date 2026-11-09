@@ -38,6 +38,14 @@
 {% endmacro %}
 
 
+{% macro category_badge(category) %}
+	{% if category.color is not empty %}
+		<span class="badge" style="{{ category.get_badge_style() }}">{{ category.name }}</span>
+	{% else %}
+		{{ category.name }}
+	{% endif %}
+{% endmacro %}
+
 {% macro show_errors(errors) %}
 	<ul class="mb-0">
 		{% for key, message in errors %}

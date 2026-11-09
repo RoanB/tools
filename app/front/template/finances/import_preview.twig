@@ -1,0 +1,49 @@
+{% import "_default/macro.tabler.twig" as tabler %}
+{% extends "_default/layout.base.twig" %}
+
+{% block title %}Confirm import · Tools{% endblock title %}
+
+{% block content %}
+	<div class="row g-3">
+		<div class="col-12 col-md-2 col-xl-2">
+			{% include "finances/_sidebar.twig" with { compact: true } %}
+		</div>
+
+		<div class="col-12 col-md-10 col-xl-10">
+			<h1 class="page-heading mb-3">Confirm import</h1>
+
+			<div class="card">
+				<div class="card-header">
+					<h3 class="card-title">Import into {{ bank_account.name }}{% if bank_account.iban is not empty %} ({{ bank_account.iban }}){% endif %}</h3>
+				</div>
+				<div class="card-body">
+					<p class="mb-3">
+						The uploaded file contains <strong>{{ row_count }}</strong>
+						transaction(s) and will be imported into the bank account
+						above.
+					</p>
+
+					{% if file_account is not null and file_account.id != bank_account.id %}
+						{{ tabler.alert(
+							'info',
+							'This file belongs to ' ~ file_account.name ~ ' (' ~ file_account.iban ~ '), not the account selected above.',
+							'Confirming will import into ' ~ file_account.name ~ ' — the account the file itself identifies.'
+						) }}
+					{% elseif file_account is null %}
+						{{ tabler.alert('warning', 'Could not match this file to a configured account by IBAN.', 'It will be imported into the account selected above; update the account settings if that is wrong.') }}
+					{% else %}
+						{{ tabler.alert('success', 'This file matches the selected account (' ~ file_account.name ~ ').', 'OK to import.') }}
+					{% endif %}
+				</div>
+				<div class="card-footer d-flex justify-content-between">
+					<a href="/finances" class="btn btn-outline-secondary">Cancel</a>
+					<form action="/finances?action=import" method="post">
+						<button type="submit" class="btn btn-primary">
+							<i class="ti ti-upload me-1"></i>Import {{ row_count }} transaction(s)
+						</button>
+					</form>
+				</div>
+			</div>
+		</div>
+	</div>
+{% endblock content %}

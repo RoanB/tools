@@ -1,0 +1,132 @@
+{% import "_default/macro.tabler.twig" as tabler %}
+{% extends "_default/layout.base.twig" %}
+
+{% block title %}Finances rules · Tools{% endblock title %}
+
+{% block content %}
+	<div class="row g-3">
+		<div class="col-12 col-md-2 col-xl-2">
+			{% include "finances/_sidebar.twig" %}
+		</div>
+
+		<div class="col-12 col-md-10 col-xl-10">
+			<div class="d-flex justify-content-between align-items-center mb-3">
+				<h1 class="page-heading mb-0">Auto-link rules</h1>
+				<div class="d-flex gap-2">
+					<a href="/finances/settings?action=rule_conflicts" class="btn btn-outline-secondary">
+						<i class="ti ti-arrows-exchange me-1"></i>Conflict report
+					</a>
+					<a href="/finances/settings?action=rule_new" class="btn btn-primary">
+						<i class="ti ti-plus me-1"></i>New rule
+					</a>
+				</div>
+			</div>
+
+			<p class="text-secondary">
+				Rules apply top to bottom and the first match wins, so put
+				specific rules on top. Drag to reorder; the order is saved
+				automatically.
+			</p>
+
+			<div class="card">
+				<table class="table card-table table-vcenter table-compact">
+					<thead>
+						<tr>
+							<th></th>
+							<th>Name</th>
+							<th>Category</th>
+							<th>Match</th>
+							<th>Fields</th>
+							<th>Pattern</th>
+							<th class="text-center" title="Transactions currently categorized by this rule">Matched</th>
+							<th class="text-end">Actions</th>
+						</tr>
+					</thead>
+					<tbody id="rules-sortable">
+						{% for rule in rules %}
+							<tr data-rule-id="{{ rule.id }}">
+								<td class="w-1 text-secondary rule-drag-handle" title="Drag to reorder">
+									<i class="ti ti-grip-vertical"></i>
+								</td>
+								<td class="text-truncate" style="max-width: 12rem" title="{{ rule.name }}">{{ rule.name }}</td>
+								<td>
+									{% set category = categories[rule.finance_category_id] ?? null %}
+									{% if category is not null %}
+										{{ tabler.category_badge(category) }}
+									{% endif %}
+								</td>
+								<td><span class="badge bg-secondary">{{ rule.get_match_type_label() }}</span></td>
+								<td class="text-secondary small">{{ rule.get_selected_fields()|join(', ') }}</td>
+								<td class="text-secondary font-monospace text-truncate" style="max-width: 16rem" title="{{ rule.pattern }}">{{ rule.pattern }}</td>
+								<td class="text-center">
+									{% set audit_count = audit_counts[rule.id] ?? 0 %}
+									{% if audit_count > 0 %}
+										<span class="badge bg-secondary">{{ audit_count }}</span>
+									{% else %}
+										<span class="badge bg-warning-lt" title="No transaction carries this rule's audit link yet">0</span>
+									{% endif %}
+								</td>
+								<td class="text-end">
+									<div class="d-flex gap-1 justify-content-end">
+										<a href="/finances/settings?action=rule_edit&rule_id={{ rule.id }}" class="btn btn-sm btn-outline-primary" title="Edit">
+											<i class="ti ti-pencil"></i>
+										</a>
+										<form action="/finances/settings?action=rule_delete&rule_id={{ rule.id }}" method="post" class="d-inline" onsubmit="return confirm('Delete this rule?');">
+											<button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
+												<i class="ti ti-trash"></i>
+											</button>
+										</form>
+									</div>
+								</td>
+							</tr>
+						{% else %}
+							<tr>
+								<td colspan="8" class="text-center text-secondary py-4">No rules found.</td>
+							</tr>
+						{% endfor %}
+					</tbody>
+				</table>
+				<div class="card-footer">
+					<span class="text-secondary small">{{ rules|length }} rules</span>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<form id="rule-order-form" action="/finances/settings?action=rule_order" method="post"></form>
+{% endblock content %}
+
+{% block javascript %}
+	<script src="/sortablejs/Sortable.min.js"></script>
+	<script>
+		$(document).ready(function () {
+			var sortable_list = document.getElementById('rules-sortable');
+			if (sortable_list === null) {
+				return;
+			}
+
+			Sortable.create(sortable_list, {
+				handle: '.rule-drag-handle',
+				draggable: 'tr[data-rule-id]',
+				onEnd: function () {
+					rule_order_save();
+				},
+			});
+		});
+
+		function rule_order_save() {
+			page_loader_show();
+			var form = $('#rule-order-form');
+			form.empty();
+			$('#rules-sortable tr[data-rule-id]').each(function () {
+				var rule_id = $(this).data('rule-id');
+				form.append($('<input>', {
+					type: 'hidden',
+					name: 'order[]',
+					value: rule_id,
+				}));
+			});
+			form.submit();
+		}
+	</script>
+{% endblock javascript %}

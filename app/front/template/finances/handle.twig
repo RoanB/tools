@@ -1,0 +1,133 @@
+{% import "_default/macro.tabler.twig" as tabler %}
+{% extends "_default/layout.base.twig" %}
+
+{% block title %}Handle transactions · Tools{% endblock title %}
+
+{% block content %}
+	<div class="row g-3">
+		<div class="col-12 col-md-2 col-xl-2">
+			{% include "finances/_sidebar.twig" with { compact: true } %}
+		</div>
+
+		<div class="col-12 col-md-10 col-xl-10">
+			<div class="d-flex justify-content-between align-items-center mb-3">
+				<h1 class="page-heading mb-0">Handle uncategorized transactions</h1>
+				<form action="/finances?action=reindex" method="post" onsubmit="return confirm('Re-apply the current rules to all uncategorized transactions and re-check the internal transfer flags against your configured accounts? Existing category assignments are left untouched.');">
+					<button type="submit" class="btn btn-primary">
+						<i class="ti ti-refresh me-1"></i>Re-index
+					</button>
+				</form>
+			</div>
+
+			<p class="text-secondary">
+				Review transactions that could not be auto-categorized. Set the
+				incoming/outgoing flag and assign a category for each one.
+			</p>
+
+			{% if env.sticky_session.finance_handle_result is defined %}
+				{% set handle_result = env.sticky_session.finance_handle_result %}
+				{% if handle_result.reindexed is defined %}
+					{% set reindex_title = handle_result.reindexed ~ ' transactions re-indexed' %}
+					{% if handle_result.transfers is defined and handle_result.transfers > 0 %}
+						{% set reindex_title = reindex_title ~ ', ' ~ handle_result.transfers ~ ' internal transfer' ~ (handle_result.transfers == 1 ? '' : 's') ~ ' flagged' %}
+					{% endif %}
+					{{ tabler.alert('success', reindex_title ~ '.', handle_result.uncategorized ~ ' remain uncategorized.') }}
+				{% else %}
+					{% set saved_title = handle_result.saved ~ ' transactions updated.' %}
+					{% if handle_result.rules_created is defined and handle_result.rules_created > 0 %}
+						{% set saved_title = saved_title ~ ' ' ~ handle_result.rules_created ~ ' new rule' ~ (handle_result.rules_created == 1 ? '' : 's') ~ ' created.' %}
+					{% endif %}
+					{{ tabler.alert('success', saved_title) }}
+				{% endif %}
+			{% endif %}
+
+			<div class="card">
+				<div class="card-body px-0 pt-0">
+					<form action="/finances?action=handle" method="post">
+						<input type="hidden" name="return_to" value="{{ return_to }}">
+						<div class="table-responsive">
+							<table class="table card-table table-vcenter table-compact">
+								<thead>
+									<tr>
+										<th></th>
+										<th>{{ header_value_date|raw }}</th>
+										<th>{{ header_counterparty_name|raw }}</th>
+										<th>{{ header_description|raw }}</th>
+										<th>{{ header_amount|raw }}</th>
+										<th>{{ header_account|raw }}</th>
+										<th>Direction</th>
+										<th>Category</th>
+										<th title="Create a fuzzy rule for this counterparty (or description) with the chosen category, so future transactions of the same merchant are categorized automatically">
+											Rule <i class="ti ti-info-circle"></i>
+										</th>
+									</tr>
+								</thead>
+								<tbody>
+									{% for transaction in pager.items %}
+										<tr>
+											<td>
+												<a href="/finances?action=detail&transaction_id={{ transaction.id }}&back={{ return_to|url_encode }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary" title="View details">
+													<i class="ti ti-eye"></i>
+												</a>
+											</td>
+											<td class="text-nowrap">{{ transaction.value_date|date('d/m/Y') }}</td>
+											<td class="text-truncate" style="max-width: 12rem" title="{{ transaction.counterparty_name }}">{{ transaction.counterparty_name ?: '—' }}</td>
+											<td class="text-secondary text-truncate" style="max-width: 10rem" title="{{ transaction.description }}">{{ transaction.description ?: '—' }}</td>
+											<td class="text-nowrap {{ transaction.amount > 0 ? 'text-success' : 'text-danger' }}">
+												{{ transaction.amount > 0 ? '+' : '-' }}&euro; {{ (transaction.amount|abs)|number_format(2, ',', ' ') }}
+											</td>
+											<td class="text-secondary">
+												{% set bank_account = transaction.get_bank_account() %}
+												{{ bank_account.get_short_name() }}
+											</td>
+											<td>
+												<select name="transactions[{{ transaction.id }}][incoming]" class="form-select form-select-sm" data-width="130px">
+													<option value="1"{% if transaction.incoming == 1 %} selected{% endif %}>Incoming</option>
+													<option value="0"{% if transaction.incoming == 0 %} selected{% endif %}>Outgoing</option>
+												</select>
+											</td>
+											<td>
+												<select name="transactions[{{ transaction.id }}][category_id]" class="form-select form-select-sm" data-width="160px">
+													<option value="0">— No category —</option>
+													{% for category in categories %}
+														<option value="{{ category.id }}">{{ category.name }}</option>
+													{% endfor %}
+												</select>
+											</td>
+											<td class="text-center">
+												<input type="checkbox" name="transactions[{{ transaction.id }}][create_rule]" value="1" class="form-check-input" title="Also create a rule from this pick">
+											</td>
+										</tr>
+									{% else %}
+										<tr>
+											<td colspan="9" class="text-center text-secondary py-4">All transactions are categorized.</td>
+										</tr>
+									{% endfor %}
+								</tbody>
+							</table>
+						</div>
+
+						{% if pager.items is not empty %}
+							<div class="d-flex justify-content-end m-3">
+								<button type="submit" name="handle_save" value="1" class="btn btn-primary btn-sm">
+									<i class="ti ti-device-floppy my-1"></i>Save all changes
+								</button>
+							</div>
+						{% endif %}
+					</form>
+				</div>
+				<div class="card-footer">
+					<div class="row g-2 justify-content-center justify-content-sm-between align-items-center">
+						<div class="col-auto d-flex align-items-center gap-3">
+							<span class="text-secondary small">{{ pager.item_count }} uncategorized</span>
+							{{ pager.per_page_links|raw }}
+						</div>
+						<div class="col-auto">
+							{{ pager.links|raw }}
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+{% endblock content %}

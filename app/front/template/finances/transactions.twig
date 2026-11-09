@@ -1,0 +1,263 @@
+{% import "_default/macro.tabler.twig" as tabler %}
+{% extends "_default/layout.base.twig" %}
+
+{% block title %}Transactions · Tools{% endblock title %}
+
+{% block content %}
+	<div class="row g-3">
+		<div class="col-12 col-md-2 col-xl-2">
+			{% include "finances/_sidebar.twig" with { compact: true } %}
+		</div>
+
+		<div class="col-12 col-md-10 col-xl-10">
+			<div class="d-flex justify-content-between align-items-center mb-3">
+				<h1 class="page-heading mb-0">Transactions</h1>
+				<div class="d-flex gap-2">
+					<a href="/finances/transactions?action=import_categories" class="btn btn-outline-secondary">
+						<i class="ti ti-file-upload me-1"></i>Import categories
+					</a>
+					<a href="{{ export_url }}" class="btn btn-outline-secondary" download>
+						<i class="ti ti-download me-1"></i>Export CSV
+					</a>
+				</div>
+			</div>
+
+			{% if env.sticky_session.finance_transactions_result is defined %}
+				{% set transactions_result = env.sticky_session.finance_transactions_result %}
+				{% if transactions_result.archived is defined %}
+					{{ tabler.alert('success', 'Transaction archived.', 'It is hidden from every list and can be restored via the Archived filter.') }}
+				{% elseif transactions_result.restored is defined %}
+					{{ tabler.alert('success', 'Transaction restored.') }}
+				{% elseif transactions_result.imported is defined %}
+					{% set import_text = transactions_result.imported ~ ' transaction' ~ (transactions_result.imported == 1 ? '' : 's') ~ ' updated.' %}
+					{% if transactions_result.skipped_ids > 0 or transactions_result.skipped_names > 0 %}
+						{% set import_text = import_text ~ ' ' ~ transactions_result.skipped_ids ~ ' skipped (unknown id), ' ~ transactions_result.skipped_names ~ ' skipped (unknown category name).' %}
+					{% endif %}
+					{{ tabler.alert('success', import_text) }}
+				{% elseif transactions_result.error is defined %}
+					{% if transactions_result.error == 'expired' %}
+						{{ tabler.alert('warning', 'The import preview expired.', 'Upload the CSV again.') }}
+					{% elseif transactions_result.error == 'upload_failed' %}
+						{{ tabler.alert('warning', 'The upload failed.', 'Choose a CSV file and try again.') }}
+					{% elseif transactions_result.error == 'import_failed' %}
+						{{ tabler.alert('warning', 'The file could not be read.', 'Make sure it is the CSV downloaded from this page.') }}
+					{% elseif transactions_result.error == 'no_changes' %}
+						{{ tabler.alert('warning', 'Nothing to apply.', 'No row in the file changes a category. Fill in the category column and try again.') }}
+					{% endif %}
+				{% endif %}
+			{% endif %}
+
+			<div class="card">
+				<div class="card-header">
+					<h3 class="card-title">
+						Bank transactions
+						<span class="text-secondary small ms-1">
+							{% if filter_internal == 'internal' %}
+								Internal transfers only
+							{% elseif filter_internal == 'all' %}
+								Including internal transfers
+							{% else %}
+								Internal transfers hidden
+							{% endif %}
+						</span>
+					</h3>
+				</div>
+				<div class="card-body pb-0">
+					<form action="/finances/transactions" method="get" class="mb-3">
+						<div class="row g-2 mb-2">
+							<div class="col-12 col-md">
+								<label class="form-label small text-secondary mb-0">Search</label>
+								<div class="input-group input-group-sm">
+									<span class="input-group-text"><i class="ti ti-search"></i></span>
+									<input type="text" name="search" class="form-control" placeholder="Counterparty, description, communication&hellip;" value="{{ filter_search }}">
+								</div>
+							</div>
+							<div class="col-6 col-md-auto">
+								<label class="form-label small text-secondary mb-0">Account</label>
+								<select name="account" class="form-select form-select-sm" data-width="200px">
+									<option value="">All accounts</option>
+									{% for account in bank_accounts %}
+										<option value="{{ account.id }}"{% if filter_account == account.id %} selected{% endif %}>
+											{{ account.name }}{% if account.iban is not empty %} ({{ account.iban }}){% endif %}
+										</option>
+									{% endfor %}
+								</select>
+							</div>
+							<div class="col-6 col-md-auto">
+								<label class="form-label small text-secondary mb-0">Category</label>
+								<select name="category" class="form-select form-select-sm" data-width="190px">
+									<option value="">All categories</option>
+									<option value="uncategorized"{% if filter_category == 'uncategorized' %} selected{% endif %}>Uncategorized</option>
+									{% for category in categories %}
+										<option value="{{ category.id }}"{% if filter_category == category.id %} selected{% endif %}>{{ category.name }}</option>
+									{% endfor %}
+								</select>
+							</div>
+							<div class="col-6 col-md-auto">
+								<label class="form-label small text-secondary mb-0">Direction</label>
+								<select name="direction" class="form-select form-select-sm" data-width="120px">
+									<option value="">In &amp; out</option>
+									<option value="in"{% if filter_direction == 'in' %} selected{% endif %}>Incoming</option>
+									<option value="out"{% if filter_direction == 'out' %} selected{% endif %}>Outgoing</option>
+								</select>
+							</div>
+							<div class="col-6 col-md-auto">
+								<label class="form-label small text-secondary mb-0">Status</label>
+								<select name="status" class="form-select form-select-sm" data-width="140px">
+									<option value="active"{% if filter_status == 'active' %} selected{% endif %}>Active</option>
+									<option value="archived"{% if filter_status == 'archived' %} selected{% endif %}>Archived</option>
+									<option value="all"{% if filter_status == 'all' %} selected{% endif %}>Active + archived</option>
+								</select>
+							</div>
+						</div>
+						<div class="collapse{% if filter_advanced_count > 0 %} show{% endif %}" id="transactions_advanced_filters">
+							<div class="row g-2 mb-2 pt-1">
+								<div class="col-6 col-md-auto">
+									<label class="form-label small text-secondary mb-0">Year</label>
+									<select name="year" class="form-select form-select-sm" data-width="110px">
+										<option value="">All years</option>
+										{% for year in years %}
+											<option value="{{ year }}"{% if filter_year == year %} selected{% endif %}>{{ year }}</option>
+										{% endfor %}
+									</select>
+								</div>
+								<div class="col-6 col-md-auto">
+									<label class="form-label small text-secondary mb-0">Date from</label>
+									<input type="date" name="date_from" class="form-control form-control-sm" value="{{ filter_date_from }}">
+								</div>
+								<div class="col-6 col-md-auto">
+									<label class="form-label small text-secondary mb-0">Date to</label>
+									<input type="date" name="date_to" class="form-control form-control-sm" value="{{ filter_date_to }}">
+								</div>
+								<div class="col-6 col-md-auto">
+									<label class="form-label small text-secondary mb-0">Amount min</label>
+									<input type="number" step="0.01" name="amount_min" class="form-control form-control-sm" style="width: 110px" value="{{ filter_amount_min }}" title="Absolute value: outgoing is negative without a direction filter">
+								</div>
+								<div class="col-6 col-md-auto">
+									<label class="form-label small text-secondary mb-0">Amount max</label>
+									<input type="number" step="0.01" name="amount_max" class="form-control form-control-sm" style="width: 110px" value="{{ filter_amount_max }}" title="Absolute value: outgoing is negative without a direction filter">
+								</div>
+								<div class="col-6 col-md-auto">
+									<label class="form-label small text-secondary mb-0">Transfers</label>
+									<select name="internal" class="form-select form-select-sm" data-width="190px">
+										<option value="">Everything except internal</option>
+										<option value="all"{% if filter_internal == 'all' %} selected{% endif %}>All transactions</option>
+										<option value="internal"{% if filter_internal == 'internal' %} selected{% endif %}>Internal transfers only</option>
+									</select>
+								</div>
+							</div>
+							<div class="small text-secondary mb-2">
+								Amount bounds are absolute (a min of 100 = a transaction of at least &euro;&nbsp;100). Without a direction filter they apply to the signed amount: outgoing is negative.
+							</div>
+						</div>
+						<div class="d-flex align-items-center gap-2">
+							<button type="submit" class="btn btn-primary btn-sm">
+								<i class="ti ti-filter me-1"></i>Filter
+							</button>
+							<button type="button" class="btn btn-sm {{ filter_advanced_count > 0 ? 'btn-primary' : 'btn-outline-secondary' }}" data-bs-toggle="collapse" data-bs-target="#transactions_advanced_filters" aria-expanded="{{ filter_advanced_count > 0 ? 'true' : 'false' }}" aria-controls="transactions_advanced_filters">
+								<i class="ti ti-adjustments-horizontal me-1"></i>More filters{% if filter_advanced_count > 0 %} ({{ filter_advanced_count }}){% endif %}
+							</button>
+							<a href="/finances/transactions" class="btn btn-outline-secondary btn-sm ms-auto">Reset</a>
+						</div>
+					</form>
+				</div>
+				<div class="card-body border-top py-3">
+					<div class="row g-3">
+						<div class="col-6 col-md-3">
+							<div class="text-secondary small">Transactions</div>
+							<div class="h3 mb-0 font-display">{{ filter_totals.count }}</div>
+						</div>
+						<div class="col-6 col-md-3">
+							<div class="text-secondary small">Incoming</div>
+							<div class="h3 mb-0 font-display text-success">&euro; {{ filter_totals.amount_in|number_format(2, ',', ' ') }}</div>
+						</div>
+						<div class="col-6 col-md-3">
+							<div class="text-secondary small">Outgoing</div>
+							<div class="h3 mb-0 font-display text-danger">&euro; {{ filter_totals.amount_out|number_format(2, ',', ' ') }}</div>
+						</div>
+						<div class="col-6 col-md-3">
+							<div class="text-secondary small">Net</div>
+							<div class="h3 mb-0 font-display {{ filter_totals.net >= 0 ? 'text-success' : 'text-danger' }}">&euro; {{ filter_totals.net|number_format(2, ',', ' ') }}</div>
+						</div>
+					</div>
+				</div>
+				<div class="table-responsive">
+					<table class="table card-table table-vcenter table-compact">
+						<thead>
+							<tr>
+								<th>{{ header_value_date|raw }}</th>
+								<th>{{ header_account|raw }}</th>
+								<th>{{ header_counterparty_name|raw }}</th>
+								<th>{{ header_description|raw }}</th>
+								<th>{{ header_category|raw }}</th>
+								<th class="text-end">{{ header_amount|raw }}</th>
+								<th></th>
+							</tr>
+						</thead>
+						<tbody>
+							{% for transaction in pager.items %}
+								<tr>
+									<td class="text-nowrap">{{ transaction.value_date|date('d/m/Y') }}</td>
+									<td class="text-secondary">{{ transaction.get_bank_account().name }}</td>
+									<td>
+										{{ transaction.counterparty_name ?: '—' }}
+										{% if transaction.internal == 1 %}
+											<span class="badge bg-blue-lt ms-1" title="Internal transfer"><i class="ti ti-arrows-left-right"></i></span>
+										{% endif %}
+									</td>
+									<td class="text-secondary text-truncate" style="max-width: 22rem" title="{{ transaction.description }}">{{ transaction.description ?: '—' }}</td>
+									<td>
+										{% set category = transaction.get_category() %}
+										{% if category is not null %}
+											{{ tabler.category_badge(category) }}
+										{% else %}
+											<span class="badge bg-secondary">Uncategorized</span>
+										{% endif %}
+									</td>
+									<td class="text-end text-nowrap {{ transaction.is_incoming() ? 'text-success' : 'text-danger' }}">
+										{{ transaction.is_incoming() ? '+' : '-' }}&euro; {{ (transaction.amount|abs)|number_format(2, ',', ' ') }}
+									</td>
+									<td class="text-end">
+										<div class="d-flex gap-1 justify-content-end">
+											{% if filter_status == 'archived' %}
+												<form action="/finances/transactions?action=restore&transaction_id={{ transaction.id }}&back={{ current_uri|url_encode }}" method="post" class="d-inline" onsubmit="return confirm('Restore this transaction?');">
+													<button type="submit" class="btn btn-sm btn-outline-secondary" title="Restore">
+														<i class="ti ti-rotate"></i>
+													</button>
+												</form>
+											{% else %}
+												<form action="/finances/transactions?action=archive&transaction_id={{ transaction.id }}&back={{ current_uri|url_encode }}" method="post" class="d-inline" onsubmit="return confirm('Archive this transaction? It stays in the database and can be restored via the Archived filter.');">
+													<button type="submit" class="btn btn-sm btn-outline-danger" title="Archive">
+														<i class="ti ti-archive"></i>
+													</button>
+												</form>
+											{% endif %}
+											<a href="/finances/transactions?action=detail&transaction_id={{ transaction.id }}&back={{ current_uri|url_encode }}" class="btn btn-sm btn-outline-secondary" title="View details">
+												<i class="ti ti-eye"></i>
+											</a>
+										</div>
+									</td>
+								</tr>
+							{% else %}
+								<tr>
+									<td colspan="7" class="text-center text-secondary py-4">No transactions found.</td>
+								</tr>
+							{% endfor %}
+						</tbody>
+					</table>
+				</div>
+				<div class="card-footer">
+					<div class="row g-2 justify-content-center justify-content-sm-between align-items-center">
+						<div class="col-auto d-flex align-items-center gap-3">
+							<span class="text-secondary small">{{ pager.item_count }} transactions</span>
+							{{ pager.per_page_links|raw }}
+						</div>
+						<div class="col-auto">
+							{{ pager.links|raw }}
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+{% endblock content %}

@@ -1,0 +1,218 @@
+{% import "_default/macro.tabler.twig" as tabler %}
+{% extends "_default/layout.base.twig" %}
+
+{% block title %}Finances · Tools{% endblock title %}
+
+{% block content %}
+	<div class="row g-3">
+		<div class="col-12 col-md-2 col-xl-2">
+			{% include "finances/_sidebar.twig" with { compact: true } %}
+		</div>
+
+		<div class="col-12 col-md-10 col-xl-10">
+			<div class="d-flex justify-content-between align-items-center mb-3">
+				<h1 class="page-heading mb-0">Finances</h1>
+				<div class="d-flex align-items-center gap-2">
+					<select name="account" class="form-select" data-keep-params data-width="240px">
+						{% for account in bank_accounts %}
+							<option value="{{ account.id }}"{% if selected_account is not null and selected_account.id == account.id %} selected{% endif %}>
+								{{ account.name }}{% if account.iban is not empty %} ({{ account.iban }}){% endif %}
+							</option>
+						{% endfor %}
+					</select>
+					<select name="year" class="form-select" data-keep-params data-width="110px">
+						{% for year in years %}
+							<option value="{{ year }}"{% if year == selected_year %} selected{% endif %}>{{ year }}</option>
+						{% endfor %}
+					</select>
+				</div>
+			</div>
+
+			{% if env.sticky_session.finance_import_result is defined %}
+				{% set import_result = env.sticky_session.finance_import_result %}
+				{% if import_result.error == 'upload_failed' %}
+					{{ tabler.alert('danger', 'No file uploaded.') }}
+				{% elseif import_result.error == 'import_failed' %}
+					{{ tabler.alert('danger', 'The import failed. Check the file format.') }}
+				{% elseif import_result.error == 'no_account' %}
+					{{ tabler.alert('danger', 'No bank account selected.') }}
+				{% elseif import_result.error == 'savings' %}
+					{{ tabler.alert('danger', 'Savings accounts receive no imports; transfers towards them are recognized as internal.') }}
+				{% elseif import_result.error == 'no_rows' %}
+					{{ tabler.alert('danger', 'No transactions found in the uploaded file.') }}
+				{% elseif import_result.error == 'expired' %}
+					{{ tabler.alert('warning', 'The import preview expired. Upload the file again to confirm.') }}
+				{% else %}
+					{% set import_subtitle = import_result.skipped ~ ' skipped, ' ~ import_result.uncategorized ~ ' uncategorized' %}
+					{% if import_result.transfers > 0 %}
+						{% set import_subtitle = import_subtitle ~ ', ' ~ import_result.transfers ~ ' internal transfer' ~ (import_result.transfers == 1 ? '' : 's') ~ ' detected' %}
+					{% endif %}
+					{{ tabler.alert('success', import_result.imported ~ ' transactions imported', import_subtitle ~ '.') }}
+				{% endif %}
+			{% endif %}
+
+			{% if selected_account is null %}
+				<div class="card">
+					<div class="card-body">
+						<h3 class="card-title">No bank account yet</h3>
+						<p>Add a bank account under <a href="/finances/settings?action=bank_accounts">settings</a> before importing your first export.</p>
+					</div>
+				</div>
+			{% else %}
+				{# ── Import ── #}
+				<div class="card mb-3">
+					<div class="card-header">
+						<h3 class="card-title">Import bank export</h3>
+					</div>
+					<div class="card-body">
+						<p class="text-secondary mb-3">
+							Upload a CSV export from KBC or Keytrade. Transactions are
+							auto-linked to categories by the rules defined in
+							<a href="/finances/settings?action=rules">settings</a>.
+						</p>
+						<form action="/finances?action=preview" method="post" enctype="multipart/form-data" class="row g-2 align-items-end">
+							<input type="hidden" name="bank_account_id" value="{{ selected_account.id }}">
+							<div class="col-auto">
+								<input type="file" name="file" class="form-control" accept=".csv,text/csv" required>
+							</div>
+							<div class="col-auto">
+								<button type="submit" class="btn btn-primary">
+									<i class="ti ti-upload me-1"></i>Preview import
+								</button>
+							</div>
+						</form>
+					</div>
+				</div>
+
+				{# ── Stats ── #}
+				<div class="row g-3 mb-3">
+					<div class="col-6 col-xl-3">
+						<div class="card">
+							<div class="card-body">
+								<div class="text-secondary">Transactions {{ selected_year }}</div>
+								<div class="h3 mb-0">{{ stats.count }}</div>
+							</div>
+						</div>
+					</div>
+					<div class="col-6 col-xl-3">
+						<div class="card">
+							<div class="card-body">
+								<div class="text-secondary">Incoming {{ selected_year }}</div>
+								<div class="h3 mb-0 text-success">&euro; {{ stats.amount_in|number_format(2, ',', ' ') }}</div>
+							</div>
+						</div>
+					</div>
+					<div class="col-6 col-xl-3">
+						<div class="card">
+							<div class="card-body">
+								<div class="text-secondary">Outgoing {{ selected_year }}</div>
+								<div class="h3 mb-0 text-danger">&euro; {{ stats.amount_out|number_format(2, ',', ' ') }}</div>
+							</div>
+						</div>
+					</div>
+					<div class="col-6 col-xl-3">
+						<div class="card">
+							<div class="card-body">
+								<div class="text-secondary">Uncategorized</div>
+								<div class="h3 mb-0">{{ uncategorized_count }}</div>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				{# ── Transactions ── #}
+				<div class="card">
+					<div class="card-header">
+						<h3 class="card-title">Transactions</h3>
+					</div>
+					<div class="card-body px-3 pb-0">
+						<form action="/finances" method="get" class="row g-2 align-items-end mb-3">
+							<input type="hidden" name="account" value="{{ selected_account.id }}">
+							<input type="hidden" name="year" value="{{ selected_year }}">
+							<div class="col-6 col-md-auto">
+								<select name="category" class="form-select form-select-sm" data-width="200px">
+									<option value="all"{% if filter_category == 'all' %} selected{% endif %}>All categories</option>
+									<option value="uncategorized"{% if filter_category == 'uncategorized' %} selected{% endif %}>Uncategorized</option>
+									{% for category in categories %}
+										<option value="{{ category.id }}"{% if filter_category == category.id %} selected{% endif %}>{{ category.name }}</option>
+									{% endfor %}
+								</select>
+							</div>
+							<div class="col-6 col-md-auto">
+								<select name="direction" class="form-select form-select-sm" data-width="140px">
+									<option value="all"{% if filter_direction == 'all' %} selected{% endif %}>In &amp; out</option>
+									<option value="in"{% if filter_direction == 'in' %} selected{% endif %}>Incoming</option>
+									<option value="out"{% if filter_direction == 'out' %} selected{% endif %}>Outgoing</option>
+								</select>
+							</div>
+							<div class="col-12 col-md">
+								<input type="text" name="search" class="form-control form-control-sm" placeholder="Search transactions" value="{{ filter_search }}">
+							</div>
+							<div class="col-auto">
+								<button type="submit" class="btn btn-primary btn-sm">
+									<i class="ti ti-filter me-1"></i>Filter
+								</button>
+								<a href="/finances?account={{ selected_account.id }}&year={{ selected_year }}" class="btn btn-outline-secondary btn-sm">Reset</a>
+							</div>
+						</form>
+
+						<div class="table-responsive">
+							<table class="table card-table table-vcenter table-compact">
+								<thead>
+									<tr>
+										<th>{{ header_value_date|raw }}</th>
+										<th>{{ header_counterparty_name|raw }}</th>
+										<th>{{ header_description|raw }}</th>
+										<th>{{ header_category|raw }}</th>
+										<th class="text-end">{{ header_amount|raw }}</th>
+										<th></th>
+									</tr>
+								</thead>
+								<tbody>
+									{% for transaction in pager.items %}
+										<tr>
+											<td class="text-nowrap">{{ transaction.value_date|date('d/m/Y') }}</td>
+											<td>{{ transaction.counterparty_name ?: '—' }}</td>
+											<td class="text-secondary text-truncate" style="max-width: 24rem" title="{{ transaction.description }}">{{ transaction.description ?: '—' }}</td>
+											<td>
+												{% set category = transaction.get_category() %}
+												{% if category is not null %}
+													{{ tabler.category_badge(category) }}
+												{% else %}
+													<span class="badge bg-secondary">Uncategorized</span>
+												{% endif %}
+											</td>
+											<td class="text-end text-nowrap {{ transaction.is_incoming() ? 'text-success' : 'text-danger' }}">
+												{{ transaction.is_incoming() ? '+' : '-' }}&euro; {{ (transaction.amount|abs)|number_format(2, ',', ' ') }}
+											</td>
+											<td>
+												<a href="/finances?action=detail&transaction_id={{ transaction.id }}" class="btn btn-sm btn-outline-secondary" title="View details">
+													<i class="ti ti-eye"></i>
+												</a>
+											</td>
+										</tr>
+									{% else %}
+										<tr>
+											<td colspan="6" class="text-center text-secondary py-4">No transactions found.</td>
+										</tr>
+									{% endfor %}
+								</tbody>
+							</table>
+						</div>
+					</div>
+					<div class="card-footer">
+						<div class="row g-2 justify-content-center justify-content-sm-between align-items-center">
+							<div class="col-auto d-flex align-items-center gap-3">
+								<span class="text-secondary small">{{ pager.item_count }} transactions</span>
+								{{ pager.per_page_links|raw }}
+							</div>
+							<div class="col-auto">
+								{{ pager.links|raw }}
+							</div>
+						</div>
+					</div>
+				</div>
+			{% endif %}
+		</div>
+	</div>
+{% endblock content %}

@@ -1,0 +1,539 @@
+{% extends "_default/layout.base.twig" %}
+
+{% block title %}Finances · Statistics · Tools{% endblock title %}
+
+{% block header_css %}
+	<link rel="stylesheet" href="/tabler--core/dist/libs/apexcharts/dist/apexcharts.css">
+{% endblock header_css %}
+
+{% block content %}
+	<div class="row g-3">
+		<div class="col-12 col-md-2 col-xl-2">
+			{% include "finances/_sidebar.twig" with { compact: true } %}
+		</div>
+
+		<div class="col-12 col-md-10 col-xl-10">
+			<div class="d-flex justify-content-between align-items-center mb-3">
+				<h1 class="page-heading mb-0">Statistics</h1>
+				<div class="d-flex align-items-center gap-2">
+					<select name="account" class="form-select" data-keep-params data-width="240px">
+						<option value="">All accounts</option>
+						{% for account in bank_accounts %}
+							<option value="{{ account.id }}"{% if filter_account == account.id %} selected{% endif %}>
+								{{ account.name }}{% if account.iban is not empty %} ({{ account.iban }}){% endif %}
+							</option>
+						{% endfor %}
+					</select>
+					<select name="year" class="form-select" data-keep-params data-width="110px">
+						<option value="">All years</option>
+						{% for year in years %}
+							<option value="{{ year }}"{% if filter_year == year %} selected{% endif %}>{{ year }}</option>
+						{% endfor %}
+					</select>
+				</div>
+			</div>
+
+			{# ── Totals ── #}
+			<div class="row g-3 mb-3">
+				<div class="col-6 col-md-4">
+					<div class="card">
+						<div class="card-body p-3">
+							<div class="d-flex align-items-center">
+								<span class="avatar bg-success-lt me-3"><i class="ti ti-arrow-down-left"></i></span>
+								<div>
+									<div class="text-secondary small">Incoming</div>
+									<div class="h4 mb-0 font-display text-success">&euro; {{ totals.amount_in|number_format(2, ',', ' ') }}</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="col-6 col-md-4">
+					<div class="card">
+						<div class="card-body p-3">
+							<div class="d-flex align-items-center">
+								<span class="avatar bg-danger-lt me-3"><i class="ti ti-arrow-up-right"></i></span>
+								<div>
+									<div class="text-secondary small">Outgoing</div>
+									<div class="h4 mb-0 font-display text-danger">&euro; {{ totals.amount_out|number_format(2, ',', ' ') }}</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="col-6 col-md-4">
+					<div class="card">
+						<div class="card-body p-3">
+							<div class="d-flex align-items-center">
+								<span class="avatar bg-info-lt me-3"><i class="ti ti-scale"></i></span>
+								<div>
+									<div class="text-secondary small">Net</div>
+									<div class="h4 mb-0 font-display {{ totals.net >= 0 ? 'text-success' : 'text-danger' }}">&euro; {{ totals.net|number_format(2, ',', ' ') }}</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="col-6 col-md-4">
+					<div class="card">
+						<div class="card-body p-3">
+							<div class="d-flex align-items-center">
+								<span class="avatar bg-secondary-lt me-3"><i class="ti ti-list-numbers"></i></span>
+								<div>
+									<div class="text-secondary small">Transactions</div>
+									<div class="h4 mb-0 font-display">{{ totals.transaction_count }}</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="col-6 col-md-4">
+					<div class="card">
+						<div class="card-body p-3">
+							<div class="d-flex align-items-center">
+								<span class="avatar bg-warning-lt me-3"><i class="ti ti-flag"></i></span>
+								<div>
+									<div class="text-secondary small">Uncategorized</div>
+									<div class="h4 mb-0 font-display">
+										<a href="/finances?action=handle" class="text-decoration-none text-reset">{{ totals.uncategorized }}</a>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="col-6 col-md-4">
+					<div class="card">
+						<div class="card-body p-3">
+							<div class="d-flex align-items-center">
+								<span class="avatar bg-blue-lt me-3"><i class="ti ti-arrows-left-right"></i></span>
+								<div>
+									<div class="text-secondary small">Internal transfers</div>
+									<div class="h4 mb-0 font-display">
+										<a href="/finances/transactions?internal=internal" class="text-decoration-none text-reset">{{ transfers.count }}</a>
+									</div>
+									<div class="text-secondary small">&euro; {{ transfers.total|number_format(2, ',', ' ') }} moved</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			{% if totals.transaction_count == 0 %}
+				<div class="card">
+					<div class="card-body">
+						<h3 class="card-title">Nothing to show</h3>
+						<p class="mb-0">No transactions match this selection yet. Import an export on the <a href="/finances">overview</a> or change the filters above.</p>
+					</div>
+				</div>
+			{% else %}
+				{# ── Spending per category + monthly evolution ── #}
+				<div class="row g-3 mb-3">
+					<div class="col-12 col-xl-5">
+						<div class="card card-accent h-100">
+							<div class="card-header">
+								<h3 class="card-title">Spending per category</h3>
+								<div class="sub">Share of the total outgoing amount</div>
+							</div>
+							<div class="card-body">
+								<div id="chart-category-donut"></div>
+							</div>
+						</div>
+					</div>
+					<div class="col-12 col-xl-7">
+						<div class="card h-100">
+							<div class="card-header">
+								<h3 class="card-title">Monthly evolution</h3>
+								<div class="sub">Incoming, outgoing and net per month</div>
+							</div>
+							<div class="card-body">
+								<div id="chart-monthly"></div>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				{# ── Stacked monthly per category ── #}
+				<div class="row g-3 mb-3">
+					<div class="col-12">
+						<div class="card">
+							<div class="card-header">
+								<h3 class="card-title">Monthly spending per category</h3>
+								<div class="sub">Outgoing amount stacked by category, largest categories first</div>
+							</div>
+							<div class="card-body">
+								<div id="chart-category-stacked"></div>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				{# ── Category bars + top counterparties ── #}
+				<div class="row g-3 mb-3">
+					<div class="col-12 col-xl-6">
+						<div class="card h-100">
+							<div class="card-header">
+								<h3 class="card-title">Incoming vs outgoing per category</h3>
+							</div>
+							<div class="card-body">
+								<div id="chart-category-bar"></div>
+							</div>
+						</div>
+					</div>
+					<div class="col-12 col-xl-6">
+						<div class="card h-100">
+							<div class="card-header">
+								<h3 class="card-title">Top counterparties</h3>
+								<div class="sub">Largest outgoing amounts per counterparty</div>
+							</div>
+							<div class="table-responsive">
+								<table class="table card-table table-vcenter table-compact">
+									<thead>
+										<tr>
+											<th>Counterparty</th>
+											<th class="text-end">Incoming</th>
+											<th class="text-end">Outgoing</th>
+										</tr>
+									</thead>
+									<tbody>
+										{% for counterparty in counterparties %}
+											<tr>
+												<td class="text-truncate" style="max-width: 240px">
+													<a href="/finances/transactions?search={{ counterparty.name|url_encode }}" title="{{ counterparty.name }}">{{ counterparty.name }}</a>
+													<div class="small text-secondary">{{ counterparty.transaction_count }} transactions</div>
+												</td>
+												<td class="text-end text-nowrap text-success">&euro; {{ counterparty.amount_in|number_format(2, ',', ' ') }}</td>
+												<td class="text-end text-nowrap text-danger">&euro; {{ counterparty.amount_out|number_format(2, ',', ' ') }}</td>
+											</tr>
+										{% else %}
+											<tr>
+												<td colspan="3" class="text-secondary text-center">No counterparty data in this selection.</td>
+											</tr>
+										{% endfor %}
+									</tbody>
+								</table>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				{# ── Category breakdown ── #}
+				{% set total_out = 0 %}
+				{% for category_total in category_totals %}
+					{% set total_out = total_out + category_total.amount_out %}
+				{% endfor %}
+				<div class="row g-3">
+					<div class="col-12">
+						<div class="card">
+							<div class="card-header">
+								<h3 class="card-title">Category breakdown</h3>
+								<div class="sub">Incoming, outgoing and share of the total outgoing amount per category</div>
+							</div>
+							<div class="table-responsive">
+								<table class="table card-table table-vcenter table-compact">
+									<thead>
+										<tr>
+											<th>Category</th>
+											<th class="text-end">Incoming</th>
+											<th class="text-end">Outgoing</th>
+											<th class="text-end">Net</th>
+											<th>Share</th>
+										</tr>
+									</thead>
+									<tbody>
+										{% for category_total in category_totals %}
+											{% set share = total_out > 0 ? (category_total.amount_out / total_out * 100) : 0 %}
+											<tr>
+												<td>
+													<span class="badge bg-secondary-lt">
+														<span class="badge-dot" style="background-color: {{ category_total.color }}"></span>
+														{{ category_total.name }}
+													</span>
+													<div class="small text-secondary">{{ category_total.transaction_count }} transactions</div>
+												</td>
+												<td class="text-end text-nowrap text-success">&euro; {{ category_total.amount_in|number_format(2, ',', ' ') }}</td>
+												<td class="text-end text-nowrap text-danger">&euro; {{ category_total.amount_out|number_format(2, ',', ' ') }}</td>
+												<td class="text-end text-nowrap {{ category_total.net >= 0 ? 'text-success' : 'text-danger' }}">&euro; {{ category_total.net|number_format(2, ',', ' ') }}</td>
+												<td>
+													<div class="d-flex align-items-center gap-2">
+														<div class="progress flex-grow-1" style="height: 6px; max-width: 220px">
+															<div class="progress-bar" style="width: {{ share|number_format(1, '.', '') }}%; background-color: {{ category_total.color }}"></div>
+														</div>
+														<span class="text-secondary small text-nowrap">{{ share|number_format(1, ',', '') }}%</span>
+													</div>
+												</td>
+											</tr>
+										{% endfor %}
+									</tbody>
+								</table>
+							</div>
+						</div>
+					</div>
+				</div>
+			{% endif %}
+		</div>
+	</div>
+{% endblock content %}
+
+{% block javascript %}
+	<script src="/tabler--core/dist/libs/apexcharts/dist/apexcharts.min.js"></script>
+	<script>
+		var stats_data = {{ chart_data|json_encode|raw }};
+
+		/**
+		 * Format a value as euro with two decimals
+		 */
+		function format_money(value) {
+			return '€ ' + Number(value).toLocaleString('nl-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+		}
+
+		/**
+		 * Format a value as euro without decimals (axis labels)
+		 */
+		function format_money_short(value) {
+			return '€ ' + Number(value).toLocaleString('nl-BE', { maximumFractionDigits: 0 });
+		}
+
+		/**
+		 * Build the x axis labels for the monthly charts
+		 *
+		 * When a single year is selected the labels become month names,
+		 * otherwise the raw YYYY-MM periods are kept.
+		 */
+		function monthly_labels(periods) {
+			var month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+			if (stats_data.year === null) {
+				return periods;
+			}
+
+			var labels = [];
+			for (var i = 0; i < periods.length; i++) {
+				var month = parseInt(periods[i].split('-')[1], 10);
+				labels.push(month_names[month - 1]);
+			}
+
+			return labels;
+		}
+
+		/**
+		 * Render the monthly incoming / outgoing / net area chart
+		 */
+		function render_monthly_chart() {
+			var periods = [];
+			var incoming = [];
+			var outgoing = [];
+			var net = [];
+			for (var i = 0; i < stats_data.monthly.length; i++) {
+				periods.push(stats_data.monthly[i].period);
+				incoming.push(stats_data.monthly[i].amount_in);
+				outgoing.push(stats_data.monthly[i].amount_out);
+				net.push(stats_data.monthly[i].net);
+			}
+
+			var chart = new ApexCharts(document.querySelector('#chart-monthly'), {
+				chart: {
+					type: 'area',
+					height: 380,
+					fontFamily: 'inherit',
+					toolbar: { show: false },
+					zoom: { enabled: false },
+				},
+				series: [
+					{ name: 'Incoming', data: incoming },
+					{ name: 'Outgoing', data: outgoing },
+					{ name: 'Net', data: net },
+				],
+				colors: ['#4c8c4a', '#c0392b', '#2980b9'],
+				stroke: { curve: 'smooth', width: 2 },
+				fill: {
+					type: 'gradient',
+					gradient: { opacityFrom: 0.25, opacityTo: 0.04 },
+				},
+				dataLabels: { enabled: false },
+				xaxis: {
+					categories: monthly_labels(periods),
+					axisBorder: { show: false },
+					axisTicks: { show: false },
+					labels: { style: { fontSize: '11px' } },
+				},
+				yaxis: { labels: { formatter: format_money_short, style: { fontSize: '11px' } } },
+				tooltip: { y: { formatter: format_money } },
+				grid: { padding: { left: 10, right: 10 } },
+				legend: { position: 'top', horizontalAlign: 'right', fontSize: '12px' },
+			});
+			chart.render();
+		}
+
+		/**
+		 * Render the outgoing-per-category donut
+		 *
+		 * Only the largest categories get their own slice, the rest is
+		 * folded into an Other slice so the donut stays readable; the full
+		 * breakdown is in the category table below.
+		 */
+		function render_category_donut() {
+			var max_slices = 10;
+			var names = [];
+			var values = [];
+			var colors = [];
+			for (var i = 0; i < stats_data.category_totals.length; i++) {
+				if (stats_data.category_totals[i].amount_out <= 0) {
+					continue;
+				}
+
+				names.push(stats_data.category_totals[i].name);
+				values.push(stats_data.category_totals[i].amount_out);
+				colors.push(stats_data.category_totals[i].color);
+			}
+
+			if (names.length === 0) {
+				document.querySelector('#chart-category-donut').innerHTML = '<div class="text-secondary text-center py-5">No outgoing transactions in this selection.</div>';
+				return;
+			}
+
+			if (names.length > max_slices) {
+				var other_value = 0;
+				while (names.length > max_slices) {
+					other_value += values.pop();
+					names.pop();
+					colors.pop();
+				}
+
+				names.push('Other');
+				values.push(other_value);
+				colors.push('#6b737d');
+			}
+
+			var chart = new ApexCharts(document.querySelector('#chart-category-donut'), {
+				chart: {
+					type: 'donut',
+					height: 380,
+					fontFamily: 'inherit',
+					toolbar: { show: false },
+					zoom: { enabled: false },
+				},
+				series: values,
+				labels: names,
+				colors: colors,
+				stroke: { width: 2, colors: ['#f6f3ed'] },
+				dataLabels: { enabled: false },
+				legend: { position: 'bottom', fontSize: '12px' },
+				tooltip: { y: { formatter: format_money } },
+				plotOptions: {
+					pie: {
+						donut: {
+							size: '70%',
+							labels: {
+								show: true,
+								name: { fontSize: '12px' },
+								value: { fontSize: '22px', fontWeight: 600, formatter: format_money },
+								total: {
+									show: true,
+									label: 'Total out',
+									fontSize: '12px',
+									formatter: function() {
+										return format_money(stats_data.total_out);
+									},
+								},
+							},
+						},
+					},
+				},
+			});
+			chart.render();
+		}
+
+		/**
+		 * Render the incoming vs outgoing horizontal bar chart per category
+		 */
+		function render_category_bar() {
+			var names = [];
+			var incoming = [];
+			var outgoing = [];
+			for (var i = 0; i < stats_data.category_totals.length; i++) {
+				names.push(stats_data.category_totals[i].name);
+				incoming.push(stats_data.category_totals[i].amount_in);
+				outgoing.push(stats_data.category_totals[i].amount_out);
+			}
+
+			var chart = new ApexCharts(document.querySelector('#chart-category-bar'), {
+				chart: {
+					type: 'bar',
+					height: Math.max(280, 50 * names.length + 80),
+					fontFamily: 'inherit',
+					toolbar: { show: false },
+					zoom: { enabled: false },
+				},
+				plotOptions: { bar: { horizontal: true, borderRadius: 3, barHeight: '60%' } },
+				series: [
+					{ name: 'Incoming', data: incoming },
+					{ name: 'Outgoing', data: outgoing },
+				],
+				colors: ['#4c8c4a', '#c0392b'],
+				dataLabels: { enabled: false },
+				xaxis: {
+					categories: names,
+					labels: { formatter: format_money_short },
+				},
+				yaxis: { labels: { maxWidth: 180, style: { fontSize: '11px' } } },
+				tooltip: { y: { formatter: format_money } },
+				grid: { padding: { left: 10, right: 10 } },
+				legend: { position: 'top', horizontalAlign: 'right', fontSize: '12px' },
+			});
+			chart.render();
+		}
+
+		/**
+		 * Render the monthly outgoing stacked bar chart per category
+		 */
+		function render_stacked_category_chart() {
+			var series = [];
+			var colors = [];
+			for (var i = 0; i < stats_data.category_monthly.series.length; i++) {
+				series.push({
+					name: stats_data.category_monthly.series[i].name,
+					data: stats_data.category_monthly.series[i].data,
+				});
+				colors.push(stats_data.category_monthly.series[i].color);
+			}
+
+			var chart = new ApexCharts(document.querySelector('#chart-category-stacked'), {
+				chart: {
+					type: 'bar',
+					height: 340,
+					stacked: true,
+					fontFamily: 'inherit',
+					toolbar: { show: false },
+					zoom: { enabled: false },
+				},
+				series: series,
+				colors: colors,
+				plotOptions: { bar: { borderRadius: 2 } },
+				dataLabels: { enabled: false },
+				xaxis: {
+					categories: monthly_labels(stats_data.category_monthly.periods),
+					axisBorder: { show: false },
+					axisTicks: { show: false },
+					labels: { style: { fontSize: '11px' } },
+				},
+				yaxis: { labels: { formatter: format_money_short, style: { fontSize: '11px' } } },
+				tooltip: { y: { formatter: format_money } },
+				grid: { padding: { left: 10, right: 10 } },
+				legend: { position: 'top', horizontalAlign: 'right', fontSize: '12px' },
+			});
+			chart.render();
+		}
+
+		$(function() {
+			if (document.querySelector('#chart-monthly') === null) {
+				return;
+			}
+
+			render_category_donut();
+			render_monthly_chart();
+			render_category_bar();
+			render_stacked_category_chart();
+		});
+	</script>
+{% endblock javascript %}

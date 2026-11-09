@@ -1,0 +1,94 @@
+{% import "_default/macro.tabler.twig" as tabler %}
+{% extends "_default/layout.base.twig" %}
+
+{% block title %}Finances bank accounts · Tools{% endblock title %}
+
+{% block content %}
+	<div class="row g-3">
+		<div class="col-12 col-md-2 col-xl-2">
+			{% include "finances/_sidebar.twig" %}
+		</div>
+
+		<div class="col-12 col-md-10 col-xl-10">
+			<div class="d-flex justify-content-between align-items-center mb-3">
+				<h1 class="page-heading mb-0">Bank accounts</h1>
+				<a href="/finances/settings?action=bank_account_new" class="btn btn-primary">
+					<i class="ti ti-plus me-1"></i>New bank account
+				</a>
+			</div>
+
+			<p class="text-secondary">
+				Add the bank accounts (KBC, Keytrade, ...) whose exports you want
+				to import.
+			</p>
+
+			<div class="card">
+				<div class="card-body pb-0">
+					<form action="/finances/settings" method="get" class="row g-2 align-items-end mb-3">
+						<input type="hidden" name="action" value="bank_accounts">
+						<div class="col-12 col-md">
+							<input type="text" name="search" class="form-control form-control-sm" placeholder="Search bank accounts" value="{{ filter_search }}">
+						</div>
+						<div class="col-auto">
+							<button type="submit" class="btn btn-primary btn-sm">
+								<i class="ti ti-filter me-1"></i>Filter
+							</button>
+							<a href="/finances/settings?action=bank_accounts" class="btn btn-outline-secondary btn-sm">Reset</a>
+						</div>
+					</form>
+				</div>
+				<div class="table-responsive">
+					<table class="table card-table table-vcenter">
+						<thead>
+							<tr>
+								<th>{{ header_name|raw }}</th>
+								<th>{{ header_iban|raw }}</th>
+								<th class="text-end">Actions</th>
+							</tr>
+						</thead>
+						<tbody>
+							{% for bank_account in pager.items %}
+								<tr>
+									<td>
+										{{ bank_account.name }}
+										{% if bank_account.savings %}
+											<span class="badge bg-info">Savings</span>
+										{% endif %}
+									</td>
+									<td>
+										{% if bank_account.iban is not empty %}
+											<span class="font-monospace">{{ bank_account.iban }}</span>
+										{% else %}
+											<span class="text-secondary">—</span>
+										{% endif %}
+									</td>
+									<td class="text-end">
+										<a href="/finances/settings?action=bank_account_edit&bank_account_id={{ bank_account.id }}" class="btn btn-sm btn-outline-primary">Edit</a>
+										<form action="/finances/settings?action=bank_account_delete&bank_account_id={{ bank_account.id }}" method="post" class="d-inline" onsubmit="return confirm('Delete this bank account? Its transactions are kept but lose their account grouping.');">
+											<button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+										</form>
+									</td>
+								</tr>
+							{% else %}
+								<tr>
+									<td colspan="3" class="text-center text-secondary py-4">No bank accounts found.</td>
+								</tr>
+							{% endfor %}
+						</tbody>
+					</table>
+				</div>
+				<div class="card-footer">
+					<div class="row g-2 justify-content-center justify-content-sm-between align-items-center">
+						<div class="col-auto d-flex align-items-center gap-3">
+							<span class="text-secondary small">{{ pager.item_count }} bank accounts</span>
+							{{ pager.per_page_links|raw }}
+						</div>
+						<div class="col-auto">
+							{{ pager.links|raw }}
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+{% endblock content %}

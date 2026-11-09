@@ -1,0 +1,91 @@
+{% import "_default/macro.tabler.twig" as tabler %}
+{% extends "_default/layout.base.twig" %}
+
+{% block title %}{{ rule.id is empty ? 'New rule' : 'Edit rule' }} · Tools{% endblock title %}
+
+{% block content %}
+	<div class="row g-3">
+		<div class="col-12 col-md-2 col-xl-2">
+			{% include "finances/_sidebar.twig" %}
+		</div>
+
+		<div class="col-12 col-md-10 col-xl-10">
+			<div class="d-flex justify-content-between align-items-center mb-3">
+				<h1 class="page-heading mb-0">{{ rule.id is empty ? 'New rule' : 'Edit rule' }}</h1>
+				<a href="/finances/settings?action=rules" class="btn btn-outline-secondary">&larr; Back</a>
+			</div>
+
+			<div class="card">
+				<div class="card-body">
+					{% if errors is not empty %}
+						{{ tabler.alert('danger', 'Please fix the errors below.') }}
+					{% endif %}
+
+					<form action="{{ rule.id is empty ? '/finances/settings?action=rule_new' : '/finances/settings?action=rule_edit&rule_id=' ~ rule.id }}" method="post">
+						<div class="mb-3">
+							<label class="form-label" for="name">Name</label>
+							<input type="text" class="form-control{% if errors.name is defined %} is-invalid{% endif %}" id="name" name="name" value="{{ rule.name }}" placeholder="e.g. Colruyt purchases">
+							{% if errors.name is defined %}
+								<div class="invalid-feedback">{{ errors.name }}</div>
+							{% endif %}
+						</div>
+
+						<div class="row">
+							<div class="col-12 col-md-6 mb-3">
+								<label class="form-label" for="category_id">Category</label>
+								<select class="form-select{% if errors.category_id is defined %} is-invalid{% endif %}" id="category_id" name="category_id">
+									<option value="">Select a category</option>
+									{% for category in categories %}
+										<option value="{{ category.id }}"{% if rule.finance_category_id == category.id %} selected{% endif %}>{{ category.name }}</option>
+									{% endfor %}
+								</select>
+								{% if errors.category_id is defined %}
+									<div class="invalid-feedback">{{ errors.category_id }}</div>
+								{% endif %}
+							</div>
+
+							<div class="col-12 col-md-6 mb-3">
+								<label class="form-label" for="match_type">Match type</label>
+								<select class="form-select{% if errors.match_type is defined %} is-invalid{% endif %}" id="match_type" name="match_type">
+									{% for value, label in match_types %}
+										<option value="{{ value }}"{% if rule.match_type == value %} selected{% endif %}>{{ label }}</option>
+									{% endfor %}
+								</select>
+								{% if errors.match_type is defined %}
+									<div class="invalid-feedback">{{ errors.match_type }}</div>
+								{% endif %}
+							</div>
+						</div>
+
+						<div class="mb-3">
+							<label class="form-label{% if errors.fields is defined %} text-danger{% endif %}">Match against fields</label>
+							{% for value, label in fields %}
+								<div class="form-check">
+									<input class="form-check-input" type="checkbox" name="fields[]" value="{{ value }}" id="field_{{ value }}"{% if value in selected_fields %} checked{% endif %}>
+									<label class="form-check-label" for="field_{{ value }}">{{ label }}</label>
+								</div>
+							{% endfor %}
+							{% if errors.fields is defined %}
+								<div class="text-danger small">{{ errors.fields }}</div>
+							{% endif %}
+							<p class="text-secondary small mt-2 mb-0">Select one or more fields. A rule matches when any of them matches the pattern.</p>
+						</div>
+
+						<div class="mb-3">
+							<label class="form-label" for="pattern">Pattern</label>
+							<input type="text" class="form-control font-monospace{% if errors.pattern is defined %} is-invalid{% endif %}" id="pattern" name="pattern" value="{{ rule.pattern }}" placeholder="colruyt">
+							{% if errors.pattern is defined %}
+								<div class="invalid-feedback">{{ errors.pattern }}</div>
+							{% endif %}
+							{% if rule.match_type == 'regex' %}
+								<div class="form-hint">Regex patterns need a delimiter, e.g. /colruyt/i</div>
+							{% endif %}
+						</div>
+
+						<button type="submit" name="save" value="1" class="btn btn-primary">Save</button>
+					</form>
+				</div>
+			</div>
+		</div>
+	</div>
+{% endblock content %}

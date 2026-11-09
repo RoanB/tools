@@ -1,0 +1,54 @@
+{% import "_default/macro.tabler.twig" as tabler %}
+{% extends "_default/layout.base.twig" %}
+
+{% block title %}{{ bank_account.id is empty ? 'New bank account' : 'Edit bank account' }} · Tools{% endblock title %}
+
+{% block content %}
+	<div class="row g-3">
+		<div class="col-12 col-md-2 col-xl-2">
+			{% include "finances/_sidebar.twig" %}
+		</div>
+
+		<div class="col-12 col-md-10 col-xl-10">
+			<div class="d-flex justify-content-between align-items-center mb-3">
+				<h1 class="page-heading mb-0">{{ bank_account.id is empty ? 'New bank account' : 'Edit bank account' }}</h1>
+				<a href="/finances/settings?action=bank_accounts" class="btn btn-outline-secondary">&larr; Back</a>
+			</div>
+
+			<div class="card">
+				<div class="card-body">
+					{% if errors is not empty %}
+						{{ tabler.alert('danger', 'Please fix the errors below.') }}
+					{% endif %}
+
+					<form action="{{ bank_account.id is empty ? '/finances/settings?action=bank_account_new' : '/finances/settings?action=bank_account_edit&bank_account_id=' ~ bank_account.id }}" method="post">
+						<div class="mb-3">
+							<label class="form-label" for="name">Name</label>
+							<input type="text" class="form-control{% if errors.name is defined %} is-invalid{% endif %}" id="name" name="name" value="{{ bank_account.name }}" placeholder="e.g. KBC main account">
+							{% if errors.name is defined %}
+								<div class="invalid-feedback">{{ errors.name }}</div>
+							{% endif %}
+						</div>
+
+						<div class="mb-3">
+							<label class="form-label" for="iban">IBAN</label>
+							<input type="text" class="form-control font-monospace{% if errors.iban is defined %} is-invalid{% endif %}" id="iban" name="iban" value="{{ bank_account.iban }}" placeholder="BE12 3456 7890 1234">
+							{% if errors.iban is defined %}
+								<div class="invalid-feedback">{% if errors.iban == 'mandatory_for_savings' %}A savings account needs its IBAN so transfers towards it are recognized as internal.{% else %}{{ errors.iban }}{% endif %}</div>
+							{% endif %}
+							<div class="form-hint">Used to auto-detect the account on import. Optional for normal accounts, mandatory for savings accounts.</div>
+						</div>
+
+						<div class="mb-3 form-check">
+							<input class="form-check-input" type="checkbox" id="savings" name="savings" value="1"{% if bank_account.savings %} checked{% endif %}>
+							<label class="form-check-label" for="savings">Savings account</label>
+							<div class="form-hint">No exports are ever imported into a savings account. Transfers whose IBAN points at it count as internal transfers in your other accounts.</div>
+						</div>
+
+						<button type="submit" name="save" value="1" class="btn btn-primary">Save</button>
+					</form>
+				</div>
+			</div>
+		</div>
+	</div>
+{% endblock content %}

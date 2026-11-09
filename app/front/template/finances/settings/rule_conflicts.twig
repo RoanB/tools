@@ -1,0 +1,126 @@
+{% import "_default/macro.tabler.twig" as tabler %}
+{% extends "_default/layout.base.twig" %}
+
+{% block title %}Rule conflicts · Tools{% endblock title %}
+
+{% block content %}
+	<div class="row g-3">
+		<div class="col-12 col-md-2 col-xl-2">
+			{% include "finances/_sidebar.twig" %}
+		</div>
+
+		<div class="col-12 col-md-10 col-xl-10">
+			<div class="d-flex justify-content-between align-items-center mb-3">
+				<h1 class="page-heading mb-0">Rule conflict report</h1>
+				<a href="/finances/settings?action=rules" class="btn btn-outline-secondary">
+					<i class="ti ti-arrow-left me-1"></i>Back to rules
+				</a>
+			</div>
+
+			<p class="text-secondary">
+				Read-only simulation of the current rule set over every stored
+				transaction. Rules are applied from top to bottom and the first
+				match wins: when two rules match the same transaction, the rule
+				higher in the list silently claims it. Those shadow pairs show
+				where a greedy pattern may categorize transactions into the
+				wrong category.
+			</p>
+
+			<div class="row g-3 mb-3">
+				<div class="col-6 col-md-4">
+					<div class="card card-accent">
+						<div class="card-body">
+							<div class="subheader text-secondary">Transactions evaluated</div>
+							<div class="h1 font-display mb-0">{{ report.transactions }}</div>
+						</div>
+					</div>
+				</div>
+				<div class="col-6 col-md-4">
+					<div class="card">
+						<div class="card-body">
+							<div class="subheader text-secondary">Matched by 2+ rules</div>
+							<div class="h1 font-display mb-0">{{ report.multi_matched }}</div>
+						</div>
+					</div>
+				</div>
+				<div class="col-6 col-md-4">
+					<div class="card">
+						<div class="card-body">
+							<div class="subheader text-secondary">Dead rules</div>
+							<div class="h1 font-display mb-0">{{ report.dead_rule_ids|length }}</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="card mb-3">
+				<div class="card-header">
+					<h3 class="card-title">Shadow pairs</h3>
+					<span class="text-secondary small">How often the winning rule's category claims a transaction another rule also matched</span>
+				</div>
+				<div class="table-responsive">
+					<table class="table card-table table-vcenter">
+						<thead>
+							<tr>
+								<th>Winning category</th>
+								<th></th>
+								<th>Shadowed category</th>
+								<th class="text-center">Count</th>
+							</tr>
+						</thead>
+						<tbody>
+							{% for pair, count in report.shadow_pairs %}
+								<tr>
+									<td>{{ pair|split(' → ')[0] }}</td>
+									<td class="text-secondary"><i class="ti ti-arrow-right"></i></td>
+									<td>{{ pair|split(' → ')[1] }}</td>
+									<td class="text-center">{{ count }}</td>
+								</tr>
+							{% else %}
+								<tr>
+									<td colspan="4" class="text-center text-secondary py-4">No shadow matches found.</td>
+								</tr>
+							{% endfor %}
+						</tbody>
+					</table>
+				</div>
+			</div>
+
+			<div class="card">
+				<div class="card-header">
+					<h3 class="card-title">Rules that never win</h3>
+					<span class="text-secondary small">Active rules that are not the first match for any stored transaction</span>
+				</div>
+				<div class="table-responsive">
+					<table class="table card-table table-vcenter">
+						<thead>
+							<tr>
+								<th>Name</th>
+								<th>Pattern</th>
+								<th class="text-end"></th>
+							</tr>
+						</thead>
+						<tbody>
+							{% for rule_id in report.dead_rule_ids %}
+								{% set rule = rules_by_id[rule_id] ?? null %}
+								{% if rule is not null %}
+									<tr>
+										<td>{{ rule.name }}</td>
+										<td class="text-secondary font-monospace">{{ rule.pattern }}</td>
+										<td class="text-end">
+											<a href="/finances/settings?action=rule_edit&rule_id={{ rule.id }}" class="btn btn-sm btn-outline-primary">Edit</a>
+										</td>
+									</tr>
+								{% endif %}
+							{% else %}
+								<tr>
+									<td colspan="3" class="text-center text-secondary py-4">Every rule wins at least once.</td>
+								</tr>
+							{% endfor %}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+	</div>
+{% endblock content %}

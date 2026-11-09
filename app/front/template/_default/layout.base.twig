@@ -7,10 +7,19 @@
 
 	<link rel="stylesheet" href="/tabler--core/dist/css/tabler.min.css">
 	<link rel="stylesheet" href="/tabler-icons.min.css">
+	<link rel="stylesheet" href="/select2/dist/css/select2.min.css">
+	<link rel="stylesheet" href="/apalfrey/select2-bootstrap-5-theme/dist/select2-bootstrap-5-theme.min.css">
 	<link rel="stylesheet" href="/base.css">
 	{% block header_css %}{% endblock header_css %}
 </head>
 <body>
+	<div id="page-loader" class="page-loader" hidden>
+		<div class="page-loader-box">
+			<span class="spinner-border spinner-border-xl text-primary"></span>
+			<span class="page-loader-text">Loading&hellip;</span>
+		</div>
+	</div>
+
 	<div class="page">
 		{% block navbar %}
 		<header class="navbar navbar-expand-md d-print-none">
@@ -19,6 +28,11 @@
 					<a href="/" class="text-white text-decoration-none fw-bold d-flex align-items-center gap-2">
 						<img src="/logo.png" alt="Tools" style="height: 36px;">
 						<span>Tools</span>
+					</a>
+				</div>
+				<div class="navbar-nav flex-row ms-3 d-none d-md-flex">
+					<a class="nav-link text-white{% if env.module is defined and env.module.get_module_path() starts with '/finances' %} active{% endif %}" href="/finances">
+						<i class="ti ti-credit-card me-1"></i>Finances
 					</a>
 				</div>
 				<div class="navbar-nav flex-row ms-auto">
@@ -71,6 +85,7 @@
 
 	<script src="/jquery/dist/jquery.min.js"></script>
 	<script src="/tabler--core/dist/js/tabler.min.js"></script>
+	<script src="/select2/dist/js/select2.full.min.js"></script>
 	<script src="/base.js"></script>
 	{% block javascript %}{% endblock javascript %}
 </body>

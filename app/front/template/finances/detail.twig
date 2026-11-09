@@ -1,0 +1,199 @@
+{% import "_default/macro.tabler.twig" as tabler %}
+{% extends "_default/layout.base.twig" %}
+
+{% block title %}Transaction · Tools{% endblock title %}
+
+{% block content %}
+	<div class="row g-3">
+		<div class="col-12 col-md-2 col-xl-2">
+			{% include "finances/_sidebar.twig" with { compact: true } %}
+		</div>
+
+		<div class="col-12 col-md-10 col-xl-10">
+			<div class="d-flex justify-content-between align-items-center mb-3">
+				<h1 class="page-heading mb-0">
+					Transaction
+					{% if transaction.archived is not null %}
+						<span class="badge bg-secondary ms-2">Archived</span>
+					{% endif %}
+				</h1>
+				<div class="d-flex gap-2">
+					{% if transaction.archived is not null %}
+						<form action="/finances/transactions?action=restore&transaction_id={{ transaction.id }}&back={{ back_url|url_encode }}" method="post" onsubmit="return confirm('Restore this transaction?');">
+							<button type="submit" class="btn btn-outline-primary">
+								<i class="ti ti-rotate me-1"></i>Restore
+							</button>
+						</form>
+					{% else %}
+						<form action="/finances/transactions?action=archive&transaction_id={{ transaction.id }}&back={{ back_url|url_encode }}" method="post" onsubmit="return confirm('Archive this transaction? It stays in the database and can be restored via the Archived filter.');">
+							<button type="submit" class="btn btn-outline-danger">
+								<i class="ti ti-archive me-1"></i>Archive
+							</button>
+						</form>
+					{% endif %}
+					<a href="{{ back_url }}" class="btn btn-outline-secondary">
+						<i class="ti ti-arrow-left me-1"></i>Back
+					</a>
+				</div>
+			</div>
+
+			{% if env.sticky_session.finance_detail_result is defined %}
+				{{ tabler.alert('success', 'Transaction updated.') }}
+			{% endif %}
+
+			<div class="row g-3">
+				<div class="col-12 col-md-4">
+					<div class="card card-accent">
+						<div class="card-body text-center py-4">
+							<div class="text-secondary small mb-2">{{ transaction.value_date|date('d/m/Y') }}</div>
+							<div class="h1 mb-2 {{ transaction.is_incoming() ? 'text-success' : 'text-danger' }}">
+								{{ transaction.is_incoming() ? '+' : '-' }}&euro; {{ (transaction.amount|abs)|number_format(2, ',', ' ') }}
+							</div>
+							{% set category = transaction.get_category() %}
+							{% if category is not null %}
+								{{ tabler.category_badge(category) }}
+							{% else %}
+								<span class="badge bg-secondary">Uncategorized</span>
+							{% endif %}
+							{% if transaction.internal == 1 %}
+								<div class="mt-1">
+									<span class="badge bg-blue-lt"><i class="ti ti-arrows-left-right me-1"></i>Internal transfer</span>
+								</div>
+							{% endif %}
+
+							{% set direction_in = transaction.incoming is not null ? transaction.incoming == 1 : transaction.is_incoming() %}
+							<form method="post" action="/finances/transactions?action=detail&transaction_id={{ transaction.id }}&back={{ back_url|url_encode }}" class="mt-3">
+								<div class="text-start mb-2">
+									<label class="form-label small text-secondary mb-1">Direction</label>
+									<select name="incoming" class="form-select form-select-sm" data-width="100%">
+										<option value="1"{% if direction_in %} selected{% endif %}>Incoming</option>
+										<option value="0"{% if not direction_in %} selected{% endif %}>Outgoing</option>
+									</select>
+								</div>
+								<div class="text-start mb-2">
+									<label class="form-label small text-secondary mb-1">Category</label>
+									<select name="category_id" class="form-select form-select-sm" data-width="100%">
+										<option value="0">— No category —</option>
+										{% for category in categories %}
+											<option value="{{ category.id }}"{% if transaction.finance_category_id == category.id %} selected{% endif %}>{{ category.name }}</option>
+										{% endfor %}
+									</select>
+								</div>
+								<div class="text-start mb-2">
+									<label class="form-label small text-secondary mb-1">Internal transfer</label>
+									<div class="form-check form-switch mb-0">
+										<input type="checkbox" name="internal_transfer" value="1" id="internal_transfer" class="form-check-input"{% if transaction.internal == 1 %} checked{% endif %}>
+										<label class="form-check-label small" for="internal_transfer">Between my own accounts</label>
+									</div>
+								</div>
+								<div class="form-text text-start mb-3">
+									Direction is only stored for uncategorized transactions; once a
+									category is assigned the amount sign decides. Internal
+									transfers are excluded from the statistics and need no
+									category.
+								</div>
+								<button type="submit" name="detail_save" value="1" class="btn btn-primary w-100">
+									<i class="ti ti-device-floppy me-1"></i>Save
+								</button>
+							</form>
+						</div>
+					</div>
+				</div>
+
+				<div class="col-12 col-md-8">
+					<div class="card">
+						<div class="card-body px-0 py-0">
+							<table class="table table-vcenter card-table mb-0">
+								<tbody>
+									<tr>
+										<td class="text-secondary w-25">Account</td>
+										<td>
+											{{ transaction.get_bank_account().name }}
+											{% if transaction.get_bank_account().iban is not empty %}
+												<span class="text-secondary font-monospace small ms-1">{{ transaction.get_bank_account().iban }}</span>
+											{% endif %}
+										</td>
+									</tr>
+									<tr>
+										<td class="text-secondary w-25">Counterparty</td>
+										<td>{{ transaction.counterparty_name ?: '—' }}</td>
+									</tr>
+									<tr>
+										<td class="text-secondary w-25">Counterparty account</td>
+										<td>
+											{% if transaction.counterparty_account is not empty %}
+												<span class="font-monospace">{{ transaction.counterparty_account }}</span>
+											{% else %}
+												<span class="text-secondary">—</span>
+											{% endif %}
+										</td>
+									</tr>
+									<tr>
+										<td class="text-secondary w-25">Description</td>
+										<td>{{ transaction.description ?: '—' }}</td>
+									</tr>
+									<tr>
+										<td class="text-secondary w-25">Communication</td>
+										<td>{{ transaction.communication ?: '—' }}</td>
+									</tr>
+									<tr>
+										<td class="text-secondary w-25">Value date</td>
+										<td>{{ transaction.value_date|date('d/m/Y') }}</td>
+									</tr>
+									<tr>
+										<td class="text-secondary w-25">Transaction date</td>
+										<td>
+											{% if transaction.transaction_date is not empty %}
+												{{ transaction.transaction_date|date('d/m/Y') }}
+											{% else %}
+												<span class="text-secondary">—</span>
+											{% endif %}
+										</td>
+									</tr>
+									<tr>
+										<td class="text-secondary w-25">Statement number</td>
+										<td>
+											{% if transaction.transaction_number is not empty %}
+												<span class="font-monospace">{{ transaction.transaction_number }}</span>
+											{% else %}
+												<span class="text-secondary">—</span>
+											{% endif %}
+										</td>
+									</tr>
+									<tr>
+										<td class="text-secondary w-25">Balance after</td>
+										<td>
+											{% if transaction.balance is not empty %}
+												&euro; {{ transaction.balance|number_format(2, ',', ' ') }}
+											{% else %}
+												<span class="text-secondary">—</span>
+											{% endif %}
+										</td>
+									</tr>
+									<tr>
+										<td class="text-secondary w-25">Imported</td>
+										<td>{{ transaction.created|date('d/m/Y H:i') }}</td>
+									</tr>
+									<tr>
+										<td class="text-secondary w-25">Category source</td>
+										<td>
+											{% set category_rule = transaction.get_rule() %}
+											{% if category_rule is not null %}
+												<span class="badge bg-azure-lt me-1">Rule</span>
+												<a href="/finances/settings?action=rule_edit&rule_id={{ category_rule.id }}">{{ category_rule.name }}</a>
+											{% elseif transaction.is_categorized() %}
+												<span class="badge bg-secondary me-1">Manual</span>
+											{% else %}
+												<span class="text-secondary">—</span>
+											{% endif %}
+										</td>
+									</tr>
+								</tbody>
+							</table>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+{% endblock content %}

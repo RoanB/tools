@@ -1,0 +1,89 @@
+{% import "_default/macro.tabler.twig" as tabler %}
+{% extends "_default/layout.base.twig" %}
+
+{% block title %}Finances settings · Tools{% endblock title %}
+
+{% block content %}
+	<div class="row g-3">
+		<div class="col-12 col-md-2 col-xl-2">
+			{% include "finances/_sidebar.twig" %}
+		</div>
+
+		<div class="col-12 col-md-10 col-xl-10">
+			<div class="d-flex justify-content-between align-items-center mb-3">
+				<h1 class="page-heading mb-0">Categories</h1>
+				<a href="/finances/settings?action=category_new" class="btn btn-primary">
+					<i class="ti ti-plus me-1"></i>New category
+				</a>
+			</div>
+
+			{% if env.sticky_session.finance_settings_result is defined %}
+				{% set settings_result = env.sticky_session.finance_settings_result %}
+				{% if settings_result.merged_transactions is defined %}
+					{{ tabler.alert('success', 'Category merged.', settings_result.merged_source ~ ' moved ' ~ settings_result.merged_transactions ~ ' transaction' ~ (settings_result.merged_transactions == 1 ? '' : 's') ~ ' and ' ~ settings_result.merged_rules ~ ' rule' ~ (settings_result.merged_rules == 1 ? '' : 's') ~ ' into ' ~ settings_result.merged_target ~ ' and was archived.') }}
+				{% elseif settings_result.error is defined and settings_result.error == 'same' %}
+					{{ tabler.alert('warning', 'Invalid target.', 'A category cannot be merged into itself.') }}
+				{% endif %}
+			{% endif %}
+
+			<div class="card">
+				<div class="card-body pb-0">
+					<form action="/finances/settings" method="get" class="row g-2 align-items-end mb-3">
+						<div class="col-12 col-md">
+							<input type="text" name="search" class="form-control form-control-sm" placeholder="Search categories" value="{{ filter_search }}">
+						</div>
+						<div class="col-auto">
+							<button type="submit" class="btn btn-primary btn-sm">
+								<i class="ti ti-filter me-1"></i>Filter
+							</button>
+							<a href="/finances/settings" class="btn btn-outline-secondary btn-sm">Reset</a>
+						</div>
+					</form>
+				</div>
+				<div class="table-responsive">
+					<table class="table card-table table-vcenter">
+						<thead>
+							<tr>
+								<th>{{ header_name|raw }}</th>
+								<th>Rules</th>
+								<th>Transactions</th>
+								<th class="text-end">Actions</th>
+							</tr>
+						</thead>
+						<tbody>
+							{% for category in pager.items %}
+								<tr>
+									<td>{{ tabler.category_badge(category) }}</td>
+									<td>{{ category.get_rules()|length }}</td>
+									<td>{{ category.get_transaction_count() }}</td>
+									<td class="text-end">
+										<a href="/finances/settings?action=category_edit&category_id={{ category.id }}" class="btn btn-sm btn-outline-primary">Edit</a>
+										<a href="/finances/settings?action=category_merge&category_id={{ category.id }}" class="btn btn-sm btn-outline-secondary" title="Move all transactions and rules into another category">Merge</a>
+										<form action="/finances/settings?action=category_delete&category_id={{ category.id }}" method="post" class="d-inline" onsubmit="return confirm('Delete this category?');">
+											<button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+										</form>
+									</td>
+								</tr>
+							{% else %}
+								<tr>
+									<td colspan="4" class="text-center text-secondary py-4">No categories found.</td>
+								</tr>
+							{% endfor %}
+						</tbody>
+					</table>
+				</div>
+				<div class="card-footer">
+					<div class="row g-2 justify-content-center justify-content-sm-between align-items-center">
+						<div class="col-auto d-flex align-items-center gap-3">
+							<span class="text-secondary small">{{ pager.item_count }} categories</span>
+							{{ pager.per_page_links|raw }}
+						</div>
+						<div class="col-auto">
+							{{ pager.links|raw }}
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+{% endblock content %}

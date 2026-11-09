@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "23dca58e8757847117198248e12d5082",
+    "content-hash": "130250c2efc30073625c31345feacbc2",
     "packages": [
         {
             "name": "apalfrey/select2-bootstrap-5-theme",
@@ -488,6 +488,19 @@
             "dist": {
                 "type": "tar",
                 "url": "https://registry.npmjs.org/select2/-/select2-4.1.0.tgz"
+            },
+            "type": "npm-asset",
+            "license": [
+                "MIT"
+            ]
+        },
+        {
+            "name": "npm-asset/sortablejs",
+            "version": "1.15.7",
+            "dist": {
+                "type": "tar",
+                "url": "https://registry.npmjs.org/sortablejs/-/sortablejs-1.15.7.tgz",
+                "shasum": "83a0bddc472117ee328dea20b2e6f490fed20f86"
             },
             "type": "npm-asset",
             "license": [
