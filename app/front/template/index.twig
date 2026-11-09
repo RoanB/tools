@@ -7,11 +7,49 @@
 
 <div class="row row-deck row-cards">
 	<div class="col-md-6">
-		<div class="card card-accent">
+		<div class="card">
+			<div class="card-header">
+				<h3 class="card-title">
+					<i class="ti ti-credit-card me-2"></i>Finances
+				</h3>
+				<form action="/" method="get" class="ms-auto">
+					<select name="year" class="form-select form-select-sm" style="width: auto" onchange="this.form.submit()">
+						{% for drop_year in years %}
+							<option value="{{ drop_year }}"{% if drop_year == year %} selected{% endif %}>{{ drop_year }}</option>
+						{% endfor %}
+					</select>
+				</form>
+			</div>
 			<div class="card-body">
-				<h3 class="card-title">Getting started</h3>
-				<p>This is a Skeleton-based application using Tabler for the UI.</p>
-				<p>Edit <code>app/front/module/Index.php</code> and <code>app/front/template/index.twig</code> to get started.</p>
+				<div class="d-flex gap-4 mb-3">
+					<div class="text-center">
+						<div class="h2 mb-0">{{ finance_stats.count }}</div>
+						<div class="text-secondary small">Transactions {{ year }}</div>
+					</div>
+					<div class="text-center">
+						<div class="h2 mb-0 text-success">&euro; {{ finance_stats.amount_in|number_format(0, ',', ' ') }}</div>
+						<div class="text-secondary small">Incoming {{ year }}</div>
+					</div>
+					<div class="text-center">
+						<div class="h2 mb-0 text-danger">&euro; {{ finance_stats.amount_out|number_format(0, ',', ' ') }}</div>
+						<div class="text-secondary small">Outgoing {{ year }}</div>
+					</div>
+					<div class="text-center">
+						<div class="h2 mb-0">{{ finance_stats.uncategorized }}</div>
+						<div class="text-secondary small">Uncategorized</div>
+					</div>
+				</div>
+
+				<div class="text-secondary small mb-2">
+					{{ finance_account_count }} bank {{ finance_account_count == 1 ? 'account' : 'accounts' }}
+				</div>
+
+				<div class="d-flex gap-2">
+					<a href="/finances" class="btn btn-primary">
+						<i class="ti ti-arrow-right me-1"></i>Open finances
+					</a>
+					<a href="/finances/settings" class="btn btn-outline-secondary">Settings</a>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -19,15 +57,10 @@
 	<div class="col-md-6">
 		<div class="card">
 			<div class="card-body">
-				<h3 class="card-title">Structure</h3>
-				<ul class="list-unstyled mb-0">
-					<li><code>app/front/module/</code> — Controllers</li>
-					<li><code>app/front/template/</code> — Twig templates</li>
-					<li><code>app/front/event/</code> — Event handlers</li>
-					<li><code>lib/model/</code> — Models</li>
-					<li><code>lib/component/</code> — Components</li>
-					<li><code>migration/</code> — Database migrations</li>
-				</ul>
+				<h3 class="card-title">More tools coming</h3>
+				<p class="text-secondary mb-0">
+					Additional areas (projects, ...) will appear here as they are built.
+				</p>
 			</div>
 		</div>
 	</div>

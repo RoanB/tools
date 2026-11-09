@@ -17,6 +17,22 @@ use Skeleton\Core\Http\Status;
 class Module extends ModuleEventBase {
 
 	/**
+	 * Bootstrap the module
+	 *
+	 * Assigns the authenticated user to the template so the top-right
+	 * user label renders on every page, not just the index page.
+	 *
+	 * @access public
+	 * @param \Skeleton\Application\Web\Module $module
+	 */
+	public function bootstrap(\Skeleton\Application\Web\Module $module): void {
+		if (isset($_SESSION['user_id'])) {
+			$template = Template::get();
+			$template->assign('user', new \User($_SESSION['user_id']));
+		}
+	}
+
+	/**
 	 * Access denied handler
 	 *
 	 * Redirects unauthenticated users to the login page.
