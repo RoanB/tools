@@ -615,8 +615,11 @@ with Load (restores the form from the JSON) and Delete (soft
 `archive()`). The history is strictly owner-scoped: anonymous calls to
 `?action=save` / `?action=delete` answer 403, and delete verifies
 ownership because ids are guessable. The save/delete actions answer
-JSON and set `$this->template = false` so the dispatcher skips the
-template render.
+JSON and **`exit` right after echoing** (the house pattern, same as
+the CSV export) — `$this->template = false` does NOT suppress the
+template render: the property is `?string`, so `false` is coerced to
+`""`, the dispatcher renders the page after the JSON and the polluted
+response breaks the client-side parse.
 
 ### Dark mode (site-wide)
 

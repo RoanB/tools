@@ -58,21 +58,24 @@ class Promptbuilder extends Module {
 	 *
 	 * @access public
 	 */
+	/**
+	 * Save a generated prompt to the history
+	 *
+	 * Posted by the page as form-encoded fields (title, content,
+	 * inputs, target_tool, output_format). Signed-in only; anonymous
+	 * callers get a 403. The form state rides along as a JSON string
+	 * so the prompt can be loaded back into the form.
+	 *
+	 * @access public
+	 */
 	public function display_save(): void {
-		$this->template = false;
-		header('Content-Type: application/json');
-
 		if (!isset($_SESSION['user_id']) || $_SERVER['REQUEST_METHOD'] !== 'POST') {
-			http_response_code(403);
-			echo json_encode([ 'ok' => false, 'error' => 'login_required' ]);
-			return;
+			$this->json_answer([ 'ok' => false, 'error' => 'login_required' ], 403);
 		}
 
 		$content = trim((string) ($_POST['content'] ?? ''));
 		if ($content === '') {
-			http_response_code(400);
-			echo json_encode([ 'ok' => false, 'error' => 'empty_prompt' ]);
-			return;
+			$this->json_answer([ 'ok' => false, 'error' => 'empty_prompt' ], 400);
 		}
 
 		$title = trim((string) ($_POST['title'] ?? ''));
@@ -105,7 +108,7 @@ class Promptbuilder extends Module {
 		$prompt->inputs = $inputs;
 		$prompt->save();
 
-		echo json_encode([
+		$this->json_answer([
 			'ok' => true,
 			'id' => $prompt->id,
 			'title' => $title,
@@ -123,38 +126,48 @@ class Promptbuilder extends Module {
 	 * @access public
 	 */
 	public function display_delete(): void {
-		$this->template = false;
-		header('Content-Type: application/json');
-
 		if (!isset($_SESSION['user_id']) || $_SERVER['REQUEST_METHOD'] !== 'POST') {
-			http_response_code(403);
-			echo json_encode([ 'ok' => false, 'error' => 'login_required' ]);
-			return;
+			$this->json_answer([ 'ok' => false, 'error' => 'login_required' ], 403);
 		}
 
 		$id = (int) ($_POST['prompt_id'] ?? 0);
 		if ($id === 0) {
-			http_response_code(400);
-			echo json_encode([ 'ok' => false, 'error' => 'unknown_prompt' ]);
-			return;
+			$this->json_answer([ 'ok' => false, 'error' => 'unknown_prompt' ], 400);
 		}
 
 		try {
 			$prompt = Prompt::get_by_id($id);
 		} catch (\Throwable $e) {
-			http_response_code(404);
-			echo json_encode([ 'ok' => false, 'error' => 'unknown_prompt' ]);
-			return;
+			$this->json_answer([ 'ok' => false, 'error' => 'unknown_prompt' ], 404);
 		}
 
 		if ((int) $prompt->user_id !== (int) $_SESSION['user_id']) {
-			http_response_code(403);
-			echo json_encode([ 'ok' => false, 'error' => 'not_owner' ]);
-			return;
+			$this->json_answer([ 'ok' => false, 'error' => 'not_owner' ], 403);
 		}
 
 		$prompt->archive();
 
-		echo json_encode([ 'ok' => true, 'id' => $id ]);
+		$this->json_answer([ 'ok' => true, 'id' => $id ]);
+	}
+
+	/**
+	 * Answer a JSON result and stop
+	 *
+	 * JSON endpoints answer nothing but the body: echoing and exiting
+	 * keeps the dispatcher from rendering the page template after the
+	 * JSON (the house pattern, same as the CSV export). Setting
+	 * $this->template = false would NOT do that — the property is
+	 * ?string, so false is coerced to "" and the page renders anyway,
+	 * polluting the response.
+	 *
+	 * @access private
+	 * @param array $data
+	 * @param int $status
+	 */
+	private function json_answer(array $data, int $status = 200): void {
+		http_response_code($status);
+		header('Content-Type: application/json');
+		echo json_encode($data);
+		exit;
 	}
 }
