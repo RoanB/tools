@@ -151,6 +151,12 @@ class Bank_Transaction {
 	 * transaction once. Re-importing an export therefore does not create
 	 * duplicates.
 	 *
+	 * The transaction number is compared without leading zeros: KBC
+	 * started zero-padding its extract numbers (2026021 -> 02026021),
+	 * which would otherwise defeat the dedup and store a re-imported
+	 * statement twice. The number is stored as the bank delivers it; only
+	 * the comparison is normalized.
+	 *
 	 * @access public
 	 * @param int $bank_account_id
 	 * @param ?string $transaction_number
@@ -165,7 +171,7 @@ class Bank_Transaction {
 			'SELECT `id` FROM `bank_transaction`
 			WHERE `archived` IS NULL
 			AND `bank_account_id` = ?
-			AND (`transaction_number` <=> ?)
+			AND (TRIM(LEADING \'0\' FROM `transaction_number`) <=> TRIM(LEADING \'0\' FROM ?))
 			AND (`value_date` <=> ?)
 			AND `amount` = ?
 			AND (`communication` <=> ?)',

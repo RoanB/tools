@@ -1,8 +1,20 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="light">
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+	<script>
+		// Theme bootstrap: runs before the CSS paints so the page never
+		// flashes the wrong theme. Stored preference wins, else the
+		// system preference. The toggle handlers live in base.js.
+		(function () {
+			var theme = localStorage.getItem('theme');
+			if (theme !== 'dark' && theme !== 'light') {
+				theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+			}
+			document.documentElement.setAttribute('data-bs-theme', theme);
+		})();
+	</script>
 	<title>{{ page_title|default('Tools') }}</title>
 
 	<link rel="stylesheet" href="/tabler--core/dist/css/tabler.min.css">
@@ -22,6 +34,9 @@
 
 	<div class="page">
 		{% block navbar %}
+		{# Menu is login-only: anonymous visitors (public pages such as
+		/fallforce) get no navbar chrome at all. #}
+		{% if user.email is not empty %}
 		<header class="navbar navbar-expand-md d-print-none">
 			<div class="container-xl">
 				<div class="navbar-brand">
@@ -34,24 +49,29 @@
 					<a class="nav-link text-white{% if env.module is defined and env.module.get_module_path() starts with '/finances' %} active{% endif %}" href="/finances">
 						<i class="ti ti-credit-card me-1"></i>Finances
 					</a>
+					<a class="nav-link text-white{% if env.module is defined and env.module.get_module_path() starts with '/fallforce' %} active{% endif %}" href="/fallforce">
+						<i class="ti ti-anchor me-1"></i>Fallforce
+					</a>
+					<a class="nav-link text-white{% if env.module is defined and env.module.get_module_path() starts with '/promptbuilder' %} active{% endif %}" href="/promptbuilder">
+						<i class="ti ti-wand me-1"></i>Promptbuilder
+					</a>
 				</div>
 				<div class="navbar-nav flex-row ms-auto">
+					<button type="button" class="btn theme-toggle me-1" title="Theme">
+						<i class="ti ti-circle-half"></i>
+					</button>
 					<div class="nav-item dropdown">
 						<a href="#" class="nav-link text-white d-flex align-items-center gap-2 dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
 							<span class="avatar avatar-sm text-white" style="background-color: rgba(255, 255, 255, 0.25);">
 								{{ user.email|first|upper }}
 							</span>
-							{% if user.email is not empty %}
-								<span class="d-none d-md-inline">{{ user.email }}</span>
-							{% endif %}
+							<span class="d-none d-md-inline">{{ user.email }}</span>
 						</a>
 						<div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
-							{% if user.email is not empty %}
-								<div class="dropdown-header">
-									<div class="text-secondary"><small>{{ user.email }}</small></div>
-								</div>
-								<div class="dropdown-divider"></div>
-							{% endif %}
+							<div class="dropdown-header">
+								<div class="text-secondary"><small>{{ user.email }}</small></div>
+							</div>
+							<div class="dropdown-divider"></div>
 							<a class="dropdown-item" href="/login?action=logout">
 								<i class="ti ti-logout me-2"></i> Logout
 							</a>
@@ -60,6 +80,7 @@
 				</div>
 			</div>
 		</header>
+		{% endif %}
 		{% endblock navbar %}
 
 		<div class="page-wrapper">
@@ -73,6 +94,11 @@
 			<footer class="footer footer-transparent d-print-none">
 				<div class="container-xl">
 					<div class="row text-center align-items-center flex-row-reverse">
+						<div class="col-auto">
+							<button type="button" class="btn theme-toggle" title="Theme">
+								<i class="ti ti-circle-half"></i>
+							</button>
+						</div>
 						<div class="col-auto">
 							&copy; {{ 'now'|date('Y') }} Tools
 						</div>

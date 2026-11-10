@@ -1,0 +1,914 @@
+{% extends "_default/layout.base.twig" %}
+
+{% block title %}Prompt builder · Tools{% endblock title %}
+
+{% block header_css %}
+<style>
+	#toast {
+		position: fixed;
+		bottom: 24px;
+		left: 50%;
+		transform: translateX(-50%) translateY(80px);
+		background: var(--tblr-success);
+		color: #fff;
+		font-weight: 600;
+		padding: 10px 22px;
+		border-radius: 999px;
+		font-size: 0.88rem;
+		opacity: 0;
+		transition: all 0.25s ease;
+		pointer-events: none;
+		z-index: 2000;
+	}
+	#toast.show {
+		transform: translateX(-50%) translateY(0);
+		opacity: 1;
+	}
+</style>
+{% endblock header_css %}
+
+{% block content %}
+	<div class="page-header d-print-none mb-3">
+		<h1 class="page-heading mb-1">Prompt builder</h1>
+		<div class="text-secondary">
+			Fill in the form, copy the generated prompt, and paste it into your AI
+			website generator (v0, Lovable, Bolt, Claude, ChatGPT, &hellip;).
+			{% if logged_in %}
+				Saved prompts land in your history below.
+			{% else %}
+				<a href="/login">Sign in</a> to keep a history of the prompts you generate.
+			{% endif %}
+		</div>
+	</div>
+
+	<div class="row g-3">
+		<div class="col-12 col-lg-6">
+			<form id="prompt_form" autocomplete="off">
+				<div class="card mb-3">
+					<div class="card-header">
+						<h3 class="card-title">Project basics</h3>
+					</div>
+					<div class="card-body">
+						<div class="row">
+							<div class="col-md-6">
+								<label class="form-label" for="site_name">Website / brand name</label>
+								<input type="text" class="form-control" id="site_name" name="site_name" placeholder="e.g. Buysse_io Studio">
+							</div>
+							<div class="col-md-6">
+								<label class="form-label" for="site_type">Site type</label>
+								<select id="site_type" name="site_type" class="form-select">
+									<option value="">Select&hellip;</option>
+									<option>Landing page</option>
+									<option>Business / corporate website</option>
+									<option>Portfolio</option>
+									<option>E-commerce shop</option>
+									<option>Blog / magazine</option>
+									<option>SaaS product website</option>
+									<option>Restaurant / caf&eacute;</option>
+									<option>Event website</option>
+									<option>Non-profit / association</option>
+									<option>Personal website</option>
+									<option>Documentation site</option>
+								</select>
+							</div>
+						</div>
+						<label class="form-label mt-3" for="site_goal">Main goal of the website</label>
+						<textarea class="form-control" id="site_goal" name="site_goal" rows="2" placeholder="e.g. Convert visitors into booked consultations, showcase past projects, sell handmade candles&hellip;"></textarea>
+						<div class="row mt-3">
+							<div class="col-md-6">
+								<label class="form-label" for="target_audience">Target audience</label>
+								<input type="text" class="form-control" id="target_audience" name="target_audience" placeholder="e.g. Homeowners in Ghent aged 30-55">
+							</div>
+							<div class="col-md-6">
+								<label class="form-label" for="language">Language(s)</label>
+								<input type="text" class="form-control" id="language" name="language" placeholder="e.g. English, or Dutch + French">
+							</div>
+						</div>
+						<label class="form-label mt-3" for="description">Short description of the business / subject</label>
+						<textarea class="form-control" id="description" name="description" rows="3" placeholder="What it does, what makes it special"></textarea>
+					</div>
+				</div>
+
+				<div class="card mb-3">
+					<div class="card-header">
+						<h3 class="card-title">Structure &amp; pages</h3>
+					</div>
+					<div class="card-body">
+						<label class="form-label d-block">Pages to include</label>
+						<div id="pages_chips">
+							{% for page in ['Home', 'About', 'Services', 'Pricing', 'Portfolio', 'Shop', 'Blog', 'Contact', 'FAQ', 'Testimonials', 'Team', 'Careers', 'Bookings', 'Legal / Privacy', '404 page'] %}
+								<input type="checkbox" class="btn-check" id="chip_page_{{ loop.index0 }}" name="pages[]" value="{{ page }}" autocomplete="off">
+								<label class="btn btn-outline-secondary btn-sm me-1 mb-1" for="chip_page_{{ loop.index0 }}">{{ page }}</label>
+							{% endfor %}
+						</div>
+						<label class="form-label mt-3" for="extra_pages">Extra pages or custom navigation (one per line)</label>
+						<textarea class="form-control" id="extra_pages" name="extra_pages" rows="2" placeholder="e.g. Downloads&#10;Press kit"></textarea>
+						<label class="form-label mt-3" for="home_sections">Key sections on the homepage</label>
+						<textarea class="form-control" id="home_sections" name="home_sections" rows="2" placeholder="e.g. Hero with video background, 3-step process, featured projects carousel, newsletter signup"></textarea>
+					</div>
+				</div>
+
+				<div class="card mb-3">
+					<div class="card-header">
+						<h3 class="card-title">Design &amp; look</h3>
+					</div>
+					<div class="card-body">
+						<div class="row">
+							<div class="col-md-6">
+								<label class="form-label" for="design_style">Overall style</label>
+								<select id="design_style" name="design_style" class="form-select">
+									<option value="">Select&hellip;</option>
+									<option>Minimalist and clean</option>
+									<option>Modern and bold</option>
+									<option>Playful and colorful</option>
+									<option>Elegant and luxurious</option>
+									<option>Corporate and trustworthy</option>
+									<option>Retro / vintage</option>
+									<option>Brutalist</option>
+									<option>Glassmorphism</option>
+									<option>Dark and moody</option>
+									<option>Organic and natural</option>
+									<option>Tech / futuristic</option>
+								</select>
+							</div>
+							<div class="col-md-6">
+								<label class="form-label" for="color_mode">Color preference</label>
+								<select id="color_mode" name="color_mode" class="form-select">
+									<option value="">No preference</option>
+									<option>Light theme</option>
+									<option>Dark theme</option>
+									<option>Light with dark hero sections</option>
+									<option>Auto (respects system preference)</option>
+								</select>
+							</div>
+						</div>
+						<div class="row mt-3">
+							<div class="col-md-6">
+								<label class="form-label" for="brand_colors">Brand colors (hex codes or names)</label>
+								<input type="text" class="form-control" id="brand_colors" name="brand_colors" placeholder="e.g. #1E3A8A primary, #F59E0B accent, off-white background">
+							</div>
+							<div class="col-md-6">
+								<label class="form-label" for="typography">Typography feel</label>
+								<input type="text" class="form-control" id="typography" name="typography" placeholder="e.g. Serif headings (Playfair Display), clean sans body (Inter)">
+							</div>
+						</div>
+						<div class="row mt-3">
+							<div class="col-md-6">
+								<label class="form-label" for="imagery">Imagery style</label>
+								<select id="imagery" name="imagery" class="form-select">
+									<option value="">Select&hellip;</option>
+									<option>Real photography (stock is fine)</option>
+									<option>Custom illustrations</option>
+									<option>Abstract gradients and shapes</option>
+									<option>3D renders</option>
+									<option>Minimal icons only, no photos</option>
+									<option>Placeholder images, to be replaced later</option>
+								</select>
+							</div>
+							<div class="col-md-6">
+								<label class="form-label" for="navigation">Navigation</label>
+								<select id="navigation" name="navigation" class="form-select">
+									<option value="">Select&hellip;</option>
+									<option>Top navbar with page links</option>
+									<option>Top navbar with a call-to-action button</option>
+									<option>Centered logo with links below</option>
+									<option>Sidebar navigation</option>
+									<option>Hamburger menu only, even on desktop</option>
+									<option>Minimal: logo plus one contact link</option>
+								</select>
+							</div>
+						</div>
+						<div class="row mt-3">
+							<div class="col-md-6">
+								<label class="form-label" for="footer">Footer</label>
+								<select id="footer" name="footer" class="form-select">
+									<option value="">Select&hellip;</option>
+									<option>Minimal: copyright line only</option>
+									<option>Standard: links and social icons</option>
+									<option>Rich: link columns, newsletter signup, contact block</option>
+									<option>Big statement footer with a call to action</option>
+								</select>
+							</div>
+							<div class="col-md-6">
+								<label class="form-label" for="animation">Animation level</label>
+								<select id="animation" name="animation" class="form-select">
+									<option value="">No preference</option>
+									<option>None at all, a fully static page</option>
+									<option>Subtle: fades on scroll</option>
+									<option>Moderate: hover states and reveals</option>
+									<option>Rich: parallax, counters, showpieces</option>
+								</select>
+							</div>
+						</div>
+						<div class="row mt-3">
+							<div class="col-md-6">
+								<label class="form-label" for="density">Layout density</label>
+								<select id="density" name="density" class="form-select">
+									<option value="">Balanced (default)</option>
+									<option>Airy and spacious, lots of whitespace</option>
+									<option>Compact and information-dense</option>
+								</select>
+							</div>
+							<div class="col-md-6">
+								<label class="form-label" for="corners">Corner style</label>
+								<select id="corners" name="corners" class="form-select">
+									<option value="">No preference</option>
+									<option>Sharp corners, zero radius</option>
+									<option>Slightly rounded</option>
+									<option>Very rounded, pill shapes</option>
+									<option>Mixed: rounded cards, sharp images</option>
+								</select>
+							</div>
+						</div>
+						<label class="form-label mt-3" for="inspiration">Visual references / inspiration (sites, brands, moods)</label>
+						<textarea class="form-control" id="inspiration" name="inspiration" rows="2" placeholder="e.g. Similar layout to stripe.com docs, warm tones like Aesop, big imagery like Apple product pages"></textarea>
+					</div>
+				</div>
+
+				<div class="card mb-3">
+					<div class="card-header">
+						<h3 class="card-title">Functionality</h3>
+					</div>
+					<div class="card-body">
+						<label class="form-label d-block">Features to include</label>
+						<div id="features_chips">
+							{% for feature in ['Contact form', 'Newsletter signup', 'Booking / appointment scheduling', 'Shopping cart & checkout', 'Payment processing', 'User accounts / login', 'Blog / CMS-managed content', 'Search', 'Filterable gallery or product list', 'Interactive map', 'Multilingual support', 'Testimonials slider', 'Pricing table', 'Cookie consent banner', 'Social media links', 'Scroll animations'] %}
+								<input type="checkbox" class="btn-check" id="chip_feature_{{ loop.index0 }}" name="features[]" value="{{ feature }}" autocomplete="off">
+								<label class="btn btn-outline-secondary btn-sm me-1 mb-1" for="chip_feature_{{ loop.index0 }}">{{ feature }}</label>
+							{% endfor %}
+						</div>
+						<label class="form-label mt-3" for="extra_features">Additional functionality (free text)</label>
+						<textarea class="form-control" id="extra_features" name="extra_features" rows="2" placeholder="e.g. Cost calculator on the services page, PDF brochure download"></textarea>
+					</div>
+				</div>
+
+				<div class="card mb-3">
+					<div class="card-header">
+						<h3 class="card-title">Technical &amp; quality</h3>
+					</div>
+					<div class="card-body">
+						<div class="row">
+							<div class="col-md-6">
+								<label class="form-label" for="target_tool">Target AI tool</label>
+								<select id="target_tool" name="target_tool" class="form-select">
+									<option value="generic">Generic (any tool)</option>
+									<option value="v0">v0.dev (React + Tailwind)</option>
+									<option value="lovable">Lovable</option>
+									<option value="bolt">Bolt.new</option>
+									<option value="claude">Claude / ChatGPT (chat answer)</option>
+									<option value="opencode">OpenCode (terminal agent)</option>
+									<option value="claude-code">Claude Code / Codex CLI</option>
+									<option value="cursor">Cursor / Windsurf</option>
+									<option value="webflow">Webflow AI</option>
+									<option value="framer">Framer AI</option>
+								</select>
+							</div>
+							<div class="col-md-6">
+								<label class="form-label" for="output_format">Output format</label>
+								<select id="output_format" name="output_format" class="form-select">
+									<option value="narrative">Narrative prompt (paragraphs)</option>
+									<option value="structured">Structured spec (markdown sections)</option>
+								</select>
+							</div>
+						</div>
+						<div class="row mt-3">
+							<div class="col-md-6">
+								<label class="form-label" for="framework">Styling framework</label>
+								<select id="framework" name="framework" class="form-select">
+									<option value="">Let the AI tool decide</option>
+									<option>Tailwind CSS</option>
+									<option>Bootstrap 5</option>
+									<option>Bulma</option>
+									<option>Foundation</option>
+									<option>DaisyUI (Tailwind components)</option>
+									<option>Plain hand-written CSS (no framework)</option>
+								</select>
+							</div>
+							<div class="col-md-6">
+								<label class="form-label" for="component_lib">Component / icon library (optional)</label>
+								<input type="text" class="form-control" id="component_lib" name="component_lib" placeholder="e.g. shadcn/ui, Bootstrap Icons, Lucide, Font Awesome">
+							</div>
+						</div>
+						<div class="row mt-3">
+							<div class="col-md-6">
+								<label class="form-label" for="tone">Tone of voice for the copy</label>
+								<select id="tone" name="tone" class="form-select">
+									<option value="">Select&hellip;</option>
+									<option>Professional and formal</option>
+									<option>Friendly and approachable</option>
+									<option>Bold and confident</option>
+									<option>Witty and playful</option>
+									<option>Minimal and direct</option>
+									<option>Inspiring and visionary</option>
+									<option>Technical and precise</option>
+								</select>
+							</div>
+							<div class="col-md-6">
+								<label class="form-label" for="copy_source">Who writes the copy</label>
+								<select id="copy_source" name="copy_source" class="form-select">
+									<option value="">Select&hellip;</option>
+									<option>The AI writes all copy from the brief</option>
+									<option>I will provide the copy myself, use placeholders</option>
+									<option>The AI writes headlines, I provide body text</option>
+									<option>Use clearly marked lorem ipsum for now</option>
+								</select>
+							</div>
+						</div>
+						<div class="row mt-3">
+							<div class="col-md-6">
+								<label class="form-label" for="hosting">Hosting / server</label>
+								<select id="hosting" name="hosting" class="form-select">
+									<option value="apache">Apache — generate an .htaccess</option>
+									<option value="nginx">Nginx — generate an nginx.conf snippet</option>
+									<option value="netlify">Netlify — generate a _redirects file</option>
+									<option value="vercel">Vercel — generate a vercel.json</option>
+									<option value="github-pages">GitHub Pages — extensionless URLs</option>
+									<option value="">No server config needed</option>
+								</select>
+							</div>
+							<div class="col-md-6">
+								<label class="form-label d-block">Quality requirements</label>
+								<div id="quality_chips">
+									<input type="checkbox" class="btn-check" id="chip_quality_0" name="quality[]" value="Fully responsive (mobile-first)" checked autocomplete="off">
+									<label class="btn btn-outline-secondary btn-sm me-1 mb-1" for="chip_quality_0">Responsive</label>
+									<input type="checkbox" class="btn-check" id="chip_quality_1" name="quality[]" value="WCAG 2.1 AA accessibility" checked autocomplete="off">
+									<label class="btn btn-outline-secondary btn-sm me-1 mb-1" for="chip_quality_1">Accessible</label>
+									<input type="checkbox" class="btn-check" id="chip_quality_2" name="quality[]" value="SEO optimized (semantic HTML, meta tags, Open Graph)" checked autocomplete="off">
+									<label class="btn btn-outline-secondary btn-sm me-1 mb-1" for="chip_quality_2">SEO</label>
+									<input type="checkbox" class="btn-check" id="chip_quality_3" name="quality[]" value="Fast loading, optimized images" autocomplete="off">
+									<label class="btn btn-outline-secondary btn-sm me-1 mb-1" for="chip_quality_3">Fast</label>
+									<input type="checkbox" class="btn-check" id="chip_quality_4" name="quality[]" value="GDPR compliant" autocomplete="off">
+									<label class="btn btn-outline-secondary btn-sm me-1 mb-1" for="chip_quality_4">GDPR</label>
+									<input type="checkbox" class="btn-check" id="chip_quality_5" name="quality[]" value="Print stylesheet" autocomplete="off">
+									<label class="btn btn-outline-secondary btn-sm me-1 mb-1" for="chip_quality_5">Print</label>
+								</div>
+							</div>
+						</div>
+						<label class="form-label mt-3" for="avoid">Anything to avoid (anti-requirements)</label>
+						<textarea class="form-control" id="avoid" name="avoid" rows="2" placeholder="e.g. No stock photos of handshakes, no carousel on the homepage, no popups"></textarea>
+						<label class="form-label mt-3" for="extra_notes">Free-form extra instructions</label>
+						<textarea class="form-control" id="extra_notes" name="extra_notes" rows="2" placeholder="Anything else the AI should know"></textarea>
+					</div>
+				</div>
+			</form>
+		</div>
+
+		<div class="col-12 col-lg-6">
+			<div class="sticky-top" style="top: 16px;">
+				<div class="card mb-3">
+					<div class="card-header">
+						<h3 class="card-title">Generated prompt</h3>
+					</div>
+					<div class="card-body">
+						<pre id="prompt_output" class="border rounded p-3 bg-secondary-lt" style="white-space: pre-wrap; word-break: break-word; max-height: 60vh; overflow-y: auto; font-size: 0.82rem; margin-bottom: 12px;"></pre>
+						<div class="btn-list">
+							<button type="button" class="btn btn-primary" id="copy_btn">Copy prompt</button>
+							<button type="button" class="btn btn-outline-secondary" id="download_btn">Download .md</button>
+							<button type="button" class="btn btn-outline-secondary" id="reset_btn">Reset form</button>
+							{% if logged_in %}
+								<button type="button" class="btn btn-success" id="save_btn">Save to history</button>
+							{% endif %}
+							<span class="text-secondary small align-self-center" id="stats"></span>
+						</div>
+					</div>
+				</div>
+
+				{% if logged_in %}
+				<div class="card">
+					<div class="card-header">
+						<h3 class="card-title">History</h3>
+						<span class="text-secondary small ms-auto">your saved prompts, newest first</span>
+					</div>
+					<div class="card-body p-0" id="history_list">
+						{% for prompt in prompts %}
+							<div class="border-bottom p-2 px-3" data-prompt-id="{{ prompt.id }}" data-inputs="{{ prompt.inputs|escape }}">
+								<div class="d-flex justify-content-between align-items-center gap-2">
+									<div class="min-width-0">
+										<strong class="d-block text-truncate">{{ prompt.title }}</strong>
+										<small class="text-secondary">{{ prompt.target_tool }} &middot; {{ prompt.created|date('d/m/Y H:i') }}</small>
+									</div>
+									<div class="btn-list flex-nowrap">
+										{% if prompt.inputs %}
+											<button type="button" class="btn btn-sm btn-outline-secondary load-prompt">Load</button>
+										{% endif %}
+										<form method="post" action="/promptbuilder?action=delete" class="delete-form">
+											<input type="hidden" name="prompt_id" value="{{ prompt.id }}">
+											<button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+										</form>
+									</div>
+								</div>
+							</div>
+						{% else %}
+							<div class="p-3 text-secondary small">No saved prompts yet — build one and hit &ldquo;Save to history&rdquo;.</div>
+						{% endfor %}
+					</div>
+				</div>
+				{% endif %}
+			</div>
+		</div>
+	</div>
+
+	<div id="toast">Saved</div>
+{% endblock content %}
+
+{% block javascript %}
+<script>
+	(function () {
+		const tool_hints = {
+			generic: '',
+			v0: 'Build this as a single-page-application style site using React with {styling} and shadcn/ui components. Use lucide-react for icons.',
+			lovable: 'Build this with Lovable: React with {styling} and shadcn/ui components, and set up Supabase only if a feature genuinely needs a backend.',
+			bolt: 'Build this as a complete Bolt.new project using React, TypeScript, {styling} and react-router for the pages.',
+			claude: 'Deliver the site as plain HTML, JavaScript and {styling}, with no build step: one file per page, a shared stylesheet and a shared script. Use snake_case for all JavaScript variables and functions, always use braces for control structures, and use === instead of ==.',
+			opencode: 'You are OpenCode, an AI coding agent working in a terminal. Generate this site as a complete multi-file project in the current directory: each page in its own file, shared styles and scripts in dedicated css/ and js/ folders, and a README.md explaining how to serve the site locally. Prefer {styling}. Keep every file directly runnable, no placeholders or TODOs, and match the conventions of any existing code in the repository.',
+			'claude-code': 'Work as a coding agent inside this repository: create the site as a complete multi-file project with a README.md containing run instructions, one page per file, shared assets under css/ and js/, and no placeholder content. Prefer {styling}. Keep files small and well separated, and make sure every page renders without console errors.',
+			cursor: 'Generate this site inside the current project workspace: add the page files at sensible paths, wire up the navigation and the shared layout consistently, and follow the existing project conventions and formatting. Prefer {styling}.',
+			webflow: 'Structure the content so it maps cleanly onto Webflow: semantic sections, a reusable navbar and footer, and CMS collections for any list-driven content.',
+			framer: 'Design this for Framer: section-based layout, responsive breakpoints at 1200/768/480px, and scroll transforms for section reveals.'
+		};
+
+		// Default styling instruction per tool, used when the user leaves
+		// the framework select empty.
+		const tool_default_styling = {
+			v0: 'Tailwind CSS',
+			lovable: 'Tailwind CSS',
+			bolt: 'Tailwind CSS',
+			claude: 'hand-written CSS (no framework)',
+			opencode: 'hand-written CSS (no framework)',
+			'claude-code': 'hand-written CSS (no framework)',
+			cursor: 'hand-written CSS (no framework)',
+			generic: '',
+			webflow: '',
+			framer: ''
+		};
+
+		function get_value(id) {
+			const element = document.getElementById(id);
+			if (element === null) {
+				return '';
+			}
+			return element.value.trim();
+		}
+
+		function get_checked_values(container_id) {
+			const values = [];
+			$('#' + container_id + ' input[type=checkbox]:checked').each(function () {
+				values.push($(this).val());
+			});
+			return values;
+		}
+
+		function get_lines(id) {
+			const text = get_value(id);
+			if (text === '') {
+				return [];
+			}
+			return text.split('\n').map(function (line) {
+				return line.trim();
+			}).filter(function (line) {
+				return line !== '';
+			});
+		}
+
+		function bullet_list(items) {
+			return items.map(function (item) {
+				return '- ' + item;
+			}).join('\n');
+		}
+
+		function end_sentence(text) {
+			if (/[.!?]$/.test(text)) {
+				return text;
+			}
+			return text + '.';
+		}
+
+		function styling_instructions(framework, component_lib) {
+			if (framework === '' && component_lib === '') {
+				return '';
+			}
+			let text = '';
+			if (framework !== '') {
+				if (/no framework/i.test(framework)) {
+					text = 'Styling: use plain hand-written CSS with modern features (CSS custom properties, Grid and Flexbox). Do not use a CSS framework or utility library.';
+				} else {
+					text = 'Styling framework: ' + framework + '. Apply it consistently across all pages and components, and prefer a CDN link over a build step when the deliverable is static HTML.';
+				}
+			}
+			if (component_lib !== '') {
+				const lib_text = 'Component library: use ' + component_lib + ' for components and icons.';
+				if (text === '') {
+					text = lib_text;
+				} else {
+					text = text + ' ' + lib_text;
+				}
+			}
+			return text;
+		}
+
+		function server_paragraph(hosting) {
+			if (hosting === 'apache') {
+				return 'Always also generate an .htaccess file (Apache) that automatically fixes the index redirect: 301-redirect every direct request for /index.html (or /index.php) to the clean directory URL, internally serve the index file for directory requests so it never leaks into the address bar, and keep the rules free of redirect loops and consistent with canonical trailing-slash behaviour. Add a short comment above each rule explaining what it does.';
+			}
+			if (hosting === 'nginx') {
+				return 'Also generate the matching nginx configuration as an nginx.conf snippet: 301-redirect every direct request for /index.html to the clean directory URL, use try_files so directory requests serve the index internally without leaking into the address bar, and keep the rules free of redirect loops and consistent with canonical trailing-slash behaviour. Add a short comment above each rule explaining what it does.';
+			}
+			if (hosting === 'netlify') {
+				return 'Also generate a _redirects file (Netlify) that 301-redirects every direct request for /index.html to the clean directory URL and stays consistent with canonical trailing-slash behaviour. Add a short comment above each rule explaining what it does.';
+			}
+			if (hosting === 'vercel') {
+				return 'Also generate a vercel.json with clean URLs enabled (or equivalent rewrites) so /index.html never leaks into the address bar and canonical directory URLs are used consistently. Add a short comment explaining each entry.';
+			}
+			if (hosting === 'github-pages') {
+				return 'Note that the site targets GitHub Pages: use clean, extensionless canonical URLs (links point at directory URLs, never at index.html), and explain in the README how the clean-URL behaviour is achieved.';
+			}
+			return '';
+		}
+
+		function build_prompt() {
+			const site_name = get_value('site_name') || 'the website';
+			const site_type = get_value('site_type');
+			const site_goal = get_value('site_goal');
+			const audience = get_value('target_audience');
+			const language = get_value('language');
+			const description = get_value('description');
+			const pages = get_checked_values('pages_chips').concat(get_lines('extra_pages'));
+			const home_sections = get_value('home_sections');
+			const style = get_value('design_style');
+			const color_mode = get_value('color_mode');
+			const brand_colors = get_value('brand_colors');
+			const typography = get_value('typography');
+			const inspiration = get_value('inspiration');
+			const imagery = get_value('imagery');
+			const navigation = get_value('navigation');
+			const footer = get_value('footer');
+			const animation = get_value('animation');
+			const density = get_value('density');
+			const corners = get_value('corners');
+			const features = get_checked_values('features_chips');
+			const extra_features_lines = get_lines('extra_features');
+			const quality = get_checked_values('quality_chips');
+			const tone = get_value('tone');
+			const copy_source = get_value('copy_source');
+			const hosting = get_value('hosting');
+			const avoid = get_value('avoid');
+			const notes = get_value('extra_notes');
+			const target_tool = get_value('target_tool') || 'generic';
+			const output_format = get_value('output_format');
+
+			const parts = [];
+
+			parts.push('You are an expert web designer and front-end developer. Create a complete, production-ready website based on the specification below. Write real, polished copy (no lorem ipsum), and make deliberate design choices rather than generic defaults.');
+
+			const framework = get_value('framework');
+			const component_lib = get_value('component_lib');
+
+			const tech_hint = tool_hints[target_tool];
+			if (tech_hint !== '') {
+				const styling_name = framework !== '' ? framework : (tool_default_styling[target_tool] || '');
+				let resolved_hint = tech_hint;
+				if (styling_name === '') {
+					resolved_hint = resolved_hint.replace('Prefer {styling}. ', '').replace('{styling}', 'the tool\'s default styling');
+				} else {
+					resolved_hint = resolved_hint.replace('{styling}', styling_name);
+				}
+				parts.push(resolved_hint);
+			}
+			const styling_text = styling_instructions(framework, component_lib);
+			if (styling_text !== '') {
+				parts.push(styling_text);
+			}
+
+			const overview = [];
+			if (site_type !== '' || site_name !== 'the website') {
+				const type_lower = site_type.toLowerCase();
+				const article = /^[aeiou]/.test(type_lower) ? 'an' : 'a';
+				overview.push('Build ' + (site_type !== '' ? article + ' ' + type_lower : 'a website') + ' called "' + site_name + '".');
+			}
+			if (site_goal !== '') {
+				overview.push('Primary goal: ' + end_sentence(site_goal));
+			}
+			if (audience !== '') {
+				overview.push('Target audience: ' + end_sentence(audience));
+			}
+			if (language !== '') {
+				overview.push('Content language: ' + end_sentence(language));
+			}
+			if (description !== '') {
+				overview.push('About the business: ' + end_sentence(description));
+			}
+			if (overview.length > 0) {
+				parts.push(render_section(output_format, 'Project overview', overview.join('\n')));
+			}
+
+			const structure_lines = [];
+			if (pages.length > 0) {
+				structure_lines.push('Include these pages: ' + pages.join(', ') + '.');
+			}
+			if (home_sections !== '') {
+				structure_lines.push('Homepage sections: ' + end_sentence(home_sections));
+			}
+			if (structure_lines.length > 0) {
+				let body = structure_lines.join('\n');
+				if (pages.length > 1 && output_format === 'structured') {
+					body = bullet_list(pages) + '\n\n' + (home_sections !== '' ? 'Homepage sections: ' + end_sentence(home_sections) : '');
+				}
+				parts.push(render_section(output_format, 'Structure', body.trim()));
+			}
+
+			const design = [];
+			if (style !== '') {
+				design.push('Overall style: ' + end_sentence(style));
+			}
+			if (color_mode !== '') {
+				design.push('Theme: ' + end_sentence(color_mode));
+			}
+			if (brand_colors !== '') {
+				design.push('Brand colors: ' + end_sentence(brand_colors));
+			}
+			if (typography !== '') {
+				design.push('Typography: ' + end_sentence(typography));
+			}
+			if (imagery !== '') {
+				design.push('Imagery: ' + end_sentence(imagery));
+			}
+			if (navigation !== '') {
+				design.push('Navigation: ' + end_sentence(navigation));
+			}
+			if (footer !== '') {
+				design.push('Footer: ' + end_sentence(footer));
+			}
+			if (animation !== '') {
+				design.push('Animations: ' + end_sentence(animation));
+			}
+			if (density !== '') {
+				design.push('Layout density: ' + end_sentence(density));
+			}
+			if (corners !== '') {
+				design.push('Shape language: ' + end_sentence(corners));
+			}
+			if (inspiration !== '') {
+				design.push('Visual references: ' + end_sentence(inspiration));
+			}
+			if (design.length > 0) {
+				parts.push(render_section(output_format, 'Design', design.join('\n')));
+			}
+
+			const functional = features.concat(extra_features_lines.map(function (line) {
+				return end_sentence(line);
+			}));
+			if (functional.length > 0) {
+				parts.push(render_section(output_format, 'Functionality', bullet_list(functional)));
+			}
+
+			const requirements = quality.slice();
+			if (tone !== '') {
+				requirements.push('Tone of voice: ' + tone);
+			}
+			if (copy_source !== '') {
+				requirements.push('Copy: ' + copy_source);
+			}
+			if (requirements.length > 0) {
+				parts.push(render_section(output_format, 'Requirements', bullet_list(requirements)));
+			}
+
+			const constraints = [];
+			if (avoid !== '') {
+				constraints.push('Avoid: ' + end_sentence(avoid));
+			}
+			if (notes !== '') {
+				constraints.push(end_sentence(notes));
+			}
+			if (constraints.length > 0) {
+				parts.push(render_section(output_format, 'Constraints', constraints.join('\n')));
+			}
+
+			const server_text = server_paragraph(hosting);
+			if (server_text !== '') {
+				parts.push(server_text);
+			}
+
+			parts.push('Deliver the complete working result, then briefly list the design decisions you made and what you would improve next.');
+
+			return parts.join('\n\n');
+		}
+
+		function render_section(format, title, body) {
+			if (format === 'structured') {
+				return '## ' + title + '\n' + body;
+			}
+			const chunks = [];
+			let pending_list = [];
+			body.split('\n').forEach(function (line) {
+				const trimmed = line.trim();
+				if (trimmed === '') {
+					return;
+				}
+				if (trimmed.startsWith('- ')) {
+					pending_list.push(trimmed.slice(2));
+					return;
+				}
+				if (pending_list.length > 0) {
+					chunks.push(pending_list.join(', '));
+					pending_list = [];
+				}
+				chunks.push(trimmed);
+			});
+			if (pending_list.length > 0) {
+				chunks.push(pending_list.join(', '));
+			}
+			return title + ': ' + chunks.join(' ');
+		}
+
+		function update_preview() {
+			const prompt_text = build_prompt();
+			document.getElementById('prompt_output').textContent = prompt_text;
+
+			const word_count = prompt_text.split(/\s+/).filter(function (word) {
+				return word !== '';
+			}).length;
+			document.getElementById('stats').textContent = word_count + ' words · ' + prompt_text.length + ' chars';
+		}
+
+		function show_toast(message) {
+			const toast = document.getElementById('toast');
+			toast.textContent = message;
+			toast.classList.add('show');
+			setTimeout(function () {
+				toast.classList.remove('show');
+			}, 1800);
+		}
+
+		function copy_prompt() {
+			const prompt_text = build_prompt();
+			navigator.clipboard.writeText(prompt_text).then(function () {
+				show_toast('Prompt copied to clipboard');
+			}, function () {
+				const fallback = document.createElement('textarea');
+				fallback.value = prompt_text;
+				document.body.appendChild(fallback);
+				fallback.select();
+				document.execCommand('copy');
+				document.body.removeChild(fallback);
+				show_toast('Prompt copied to clipboard');
+			});
+		}
+
+		function download_prompt() {
+			const prompt_text = build_prompt();
+			const blob = new Blob([prompt_text], { type: 'text/markdown;charset=utf-8' });
+			const link = document.createElement('a');
+			link.href = URL.createObjectURL(blob);
+			const name = (get_value('site_name') || 'website').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+			link.download = (name !== '' ? name : 'website') + '-prompt.md';
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
+			URL.revokeObjectURL(link.href);
+			show_toast('Prompt downloaded');
+		}
+
+		function reset_form() {
+			document.getElementById('prompt_form').reset();
+			document.querySelectorAll('#quality_chips input[type=checkbox]').forEach(function (checkbox) {
+				checkbox.checked = false;
+			});
+			update_preview();
+			show_toast('Form cleared');
+		}
+
+		// Collect the complete form state as a plain object: text fields
+		// and selects by name, the chip groups as arrays of checked
+		// values. Used to store a prompt with its history row and to
+		// restore it later.
+		function collect_state() {
+			const state = {};
+			$('#prompt_form').serializeArray().forEach(function (field) {
+				if (field.name.endsWith('[]')) {
+					const key = field.name.slice(0, -2);
+					if (state[key] === undefined) {
+						state[key] = [];
+					}
+					state[key].push(field.value);
+				} else {
+					state[field.name] = field.value;
+				}
+			});
+			return state;
+		}
+
+		// Restore a saved state into the form: reset first (the quality
+		// chips carry HTML defaults that would otherwise survive), then
+		// apply every stored value, then wake the select2 wrappers with
+		// a change trigger — which also refreshes the preview once.
+		function apply_state(state) {
+			document.getElementById('prompt_form').reset();
+			document.querySelectorAll('#prompt_form input[type=checkbox]').forEach(function (checkbox) {
+				checkbox.checked = false;
+			});
+			Object.keys(state).forEach(function (name) {
+				const value = state[name];
+				if (Array.isArray(value)) {
+					value.forEach(function (entry) {
+						$('#prompt_form [name="' + name + '[]"]').filter('[value="' + entry + '"]').prop('checked', true);
+					});
+				} else {
+					$('#prompt_form [name="' + name + '"]').val(value);
+				}
+			});
+			$('#prompt_form select').trigger('change');
+		}
+
+		function history_row(title, tool, created, inputs, prompt_id) {
+			const row = $('<div class="border-bottom p-2 px-3"></div>');
+			row.attr('data-prompt-id', prompt_id);
+			row.attr('data-inputs', inputs);
+			const inner = $('<div class="d-flex justify-content-between align-items-center gap-2"></div>');
+			const label = $('<div class="min-width-0"></div>');
+			label.append($('<strong class="d-block text-truncate"></strong>').text(title));
+			label.append($('<small class="text-secondary"></small>').text(tool + ' · ' + created));
+			const buttons = $('<div class="btn-list flex-nowrap"></div>');
+			buttons.append($('<button type="button" class="btn btn-sm btn-outline-secondary load-prompt"></button>').text('Load'));
+			const form = $('<form method="post" action="/promptbuilder?action=delete" class="delete-form"></form>');
+			form.append($('<input type="hidden" name="prompt_id">').attr('value', prompt_id));
+			form.append($('<button type="submit" class="btn btn-sm btn-outline-danger"></button>').text('Delete'));
+			buttons.append(form);
+			inner.append(label).append(buttons);
+			row.append(inner);
+			return row;
+		}
+
+		function save_prompt() {
+			const data = new FormData();
+			data.append('title', get_value('site_name') || 'Website prompt');
+			data.append('content', build_prompt());
+			data.append('inputs', JSON.stringify(collect_state()));
+			data.append('target_tool', get_value('target_tool') || 'generic');
+			data.append('output_format', get_value('output_format') || 'narrative');
+
+			$.post({
+				url: '/promptbuilder?action=save',
+				data: data,
+				processData: false,
+				contentType: false
+			}).done(function (response) {
+				if (response.ok !== true) {
+					show_toast('Could not save the prompt');
+					return;
+				}
+				const empty_note = $('#history_list .text-secondary').first();
+				if (empty_note.length > 0) {
+					empty_note.remove();
+				}
+				$('#history_list').prepend(history_row(
+					response.title,
+					get_value('target_tool') || 'generic',
+					response.created,
+					JSON.stringify(collect_state()),
+					response.id
+				));
+				show_toast('Prompt saved to history');
+			}).fail(function () {
+				show_toast('Could not save — are you still signed in?');
+			});
+		}
+
+		$('#prompt_form').on('input change', update_preview);
+		$('#copy_btn').on('click', copy_prompt);
+		$('#download_btn').on('click', download_prompt);
+		$('#reset_btn').on('click', reset_form);
+		$('#save_btn').on('click', save_prompt);
+
+		// History actions: Load restores the form state from the row's
+		// JSON, Delete posts and removes the row. Delegated, so rows
+		// added client-side after a save work the same.
+		$('#history_list').on('click', '.load-prompt', function () {
+			const raw = $(this).closest('[data-inputs]').attr('data-inputs');
+			try {
+				apply_state(JSON.parse(raw));
+				show_toast('Prompt loaded into the form');
+			} catch (e) {
+				show_toast('Could not load this prompt');
+			}
+		});
+
+		$('#history_list').on('submit', '.delete-form', function (event) {
+			event.preventDefault();
+			if (!confirm('Delete this saved prompt?')) {
+				return;
+			}
+			const form = $(this);
+			const row = form.closest('[data-prompt-id]');
+			$.post('/promptbuilder?action=delete', form.serialize())
+				.done(function (response) {
+					if (response.ok === true) {
+						row.remove();
+						show_toast('Prompt deleted');
+					}
+				});
+		});
+
+		update_preview();
+	})();
+</script>
+{% endblock javascript %}

@@ -30,6 +30,12 @@
 							<option value="{{ year }}"{% if filter_year == year %} selected{% endif %}>{{ year }}</option>
 						{% endfor %}
 					</select>
+					<select name="month" class="form-select" data-keep-params data-width="130px"{% if filter_year == '' %} disabled title="Pick a year first"{% endif %}>
+						<option value="">All months</option>
+						{% for month_number, month_name in months %}
+							<option value="{{ month_number }}"{% if filter_month == month_number %} selected{% endif %}>{{ month_name }}</option>
+						{% endfor %}
+					</select>
 				</div>
 			</div>
 
@@ -78,6 +84,46 @@
 					<div class="card">
 						<div class="card-body p-3">
 							<div class="d-flex align-items-center">
+								<span class="avatar bg-orange-lt me-3"><i class="ti ti-flame"></i></span>
+								<div>
+									<div class="text-secondary small">Outgoing per day</div>
+									<div class="h4 mb-0 font-display">&euro; {{ totals.avg_per_day|number_format(2, ',', ' ') }}</div>
+									<div class="text-secondary small">{{ totals.days }} day{{ totals.days == 1 ? '' : 's' }} in this selection</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="col-6 col-md-4">
+					<div class="card">
+						<div class="card-body p-3">
+							<div class="d-flex align-items-center">
+								<span class="avatar bg-red-lt me-3"><i class="ti ti-trophy"></i></span>
+								<div>
+									<div class="text-secondary small">Biggest expense</div>
+									<div class="h4 mb-0 font-display">
+										{% if biggest is not empty %}
+											<a href="/finances/transactions?search={{ (biggest.counterparty_name ?? biggest.communication)|default('')|trim|url_encode }}" class="text-decoration-none text-reset text-danger">&euro; {{ biggest.amount|number_format(2, ',', ' ') }}</a>
+										{% else %}
+											<span class="text-secondary">—</span>
+										{% endif %}
+									</div>
+									<div class="text-secondary small text-truncate" style="max-width: 180px">
+										{% if biggest is not empty %}
+											{{ biggest.counterparty_name|default(biggest.communication|slice(0, 40)) }} · {{ biggest.value_date|date('d/m/Y') }}
+										{% else %}
+											No outgoing transaction
+										{% endif %}
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="col-6 col-md-4">
+					<div class="card">
+						<div class="card-body p-3">
+							<div class="d-flex align-items-center">
 								<span class="avatar bg-secondary-lt me-3"><i class="ti ti-list-numbers"></i></span>
 								<div>
 									<div class="text-secondary small">Transactions</div>
@@ -102,22 +148,6 @@
 						</div>
 					</div>
 				</div>
-				<div class="col-6 col-md-4">
-					<div class="card">
-						<div class="card-body p-3">
-							<div class="d-flex align-items-center">
-								<span class="avatar bg-blue-lt me-3"><i class="ti ti-arrows-left-right"></i></span>
-								<div>
-									<div class="text-secondary small">Internal transfers</div>
-									<div class="h4 mb-0 font-display">
-										<a href="/finances/transactions?internal=internal" class="text-decoration-none text-reset">{{ transfers.count }}</a>
-									</div>
-									<div class="text-secondary small">&euro; {{ transfers.total|number_format(2, ',', ' ') }} moved</div>
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
 			</div>
 
 			{% if totals.transaction_count == 0 %}
@@ -133,41 +163,42 @@
 					<div class="col-12 col-xl-5">
 						<div class="card card-accent h-100">
 							<div class="card-header">
-								<h3 class="card-title">Spending per category</h3>
-								<div class="sub">Share of the total outgoing amount</div>
+								<h3 class="card-title">Spending per category <span class="text-secondary small fw-normal ms-1">Share of the total outgoing amount</span></h3>
 							</div>
 							<div class="card-body">
 								<div id="chart-category-donut"></div>
 							</div>
 						</div>
 					</div>
-					<div class="col-12 col-xl-7">
-						<div class="card h-100">
-							<div class="card-header">
-								<h3 class="card-title">Monthly evolution</h3>
-								<div class="sub">Incoming, outgoing and net per month</div>
-							</div>
-							<div class="card-body">
-								<div id="chart-monthly"></div>
+					{% if filter_month == '' %}
+						<div class="col-12 col-xl-7">
+							<div class="card h-100">
+								<div class="card-header">
+									<h3 class="card-title">Monthly evolution <span class="text-secondary small fw-normal ms-1">Incoming, outgoing and net per month</span></h3>
+								</div>
+								<div class="card-body">
+									<div id="chart-monthly"></div>
+								</div>
 							</div>
 						</div>
-					</div>
+					{% endif %}
 				</div>
 
 				{# ── Stacked monthly per category ── #}
-				<div class="row g-3 mb-3">
-					<div class="col-12">
-						<div class="card">
-							<div class="card-header">
-								<h3 class="card-title">Monthly spending per category</h3>
-								<div class="sub">Outgoing amount stacked by category, largest categories first</div>
-							</div>
-							<div class="card-body">
-								<div id="chart-category-stacked"></div>
+				{% if filter_month == '' %}
+					<div class="row g-3 mb-3">
+						<div class="col-12">
+							<div class="card">
+								<div class="card-header">
+									<h3 class="card-title">Monthly spending per category <span class="text-secondary small fw-normal ms-1">Outgoing amount stacked by category, largest categories first</span></h3>
+								</div>
+								<div class="card-body">
+									<div id="chart-category-stacked"></div>
+								</div>
 							</div>
 						</div>
 					</div>
-				</div>
+				{% endif %}
 
 				{# ── Category bars + top counterparties ── #}
 				<div class="row g-3 mb-3">
@@ -178,14 +209,18 @@
 							</div>
 							<div class="card-body">
 								<div id="chart-category-bar"></div>
+								{% if category_totals|length > 15 %}
+									<div class="text-center mt-2">
+										<button type="button" id="category-bar-toggle" class="btn btn-sm btn-outline-secondary">Show all {{ category_totals|length }} categories</button>
+									</div>
+								{% endif %}
 							</div>
 						</div>
 					</div>
 					<div class="col-12 col-xl-6">
 						<div class="card h-100">
 							<div class="card-header">
-								<h3 class="card-title">Top counterparties</h3>
-								<div class="sub">Largest outgoing amounts per counterparty</div>
+								<h3 class="card-title">Top counterparties <span class="text-secondary small fw-normal ms-1">Largest outgoing amounts per counterparty</span></h3>
 							</div>
 							<div class="table-responsive">
 								<table class="table card-table table-vcenter table-compact">
@@ -227,8 +262,7 @@
 					<div class="col-12">
 						<div class="card">
 							<div class="card-header">
-								<h3 class="card-title">Category breakdown</h3>
-								<div class="sub">Incoming, outgoing and share of the total outgoing amount per category</div>
+								<h3 class="card-title">Category breakdown <span class="text-secondary small fw-normal ms-1">Incoming, outgoing and share of the total outgoing amount per category</span></h3>
 							</div>
 							<div class="table-responsive">
 								<table class="table card-table table-vcenter table-compact">
@@ -317,6 +351,52 @@
 		}
 
 		/**
+		 * Theme-aware chart colors
+		 *
+		 * ApexCharts bakes text colours in at render time and defaults
+		 * to a dark gray that is unreadable on the dark theme, so every
+		 * chart reads the palette from the current data-bs-theme when
+		 * it renders — and re-renders on the themechange event that
+		 * base.js dispatches when the toggle flips.
+		 */
+		function chart_is_dark() {
+			return document.documentElement.getAttribute('data-bs-theme') === 'dark';
+		}
+
+		function chart_text_color() {
+			return chart_is_dark() ? '#dfe5dd' : '#2b2f2e';
+		}
+
+		function chart_muted_color() {
+			return chart_is_dark() ? '#a3bda3' : '#2f4b34';
+		}
+
+		function chart_surface_color() {
+			return chart_is_dark() ? '#1a241b' : '#f6f3ed';
+		}
+
+		/**
+		 * Create or update a named chart
+		 *
+		 * First call creates and renders the instance, later calls (month
+		 * filter change, expand toggle, theme change after a destroy)
+		 * update or re-create on the same element without duplicating.
+		 */
+		var stats_chart_instances = {};
+
+		function stats_chart(el_selector, options) {
+			var instance = stats_chart_instances[el_selector];
+			if (instance === undefined) {
+				instance = new ApexCharts(document.querySelector(el_selector), options);
+				stats_chart_instances[el_selector] = instance;
+				instance.render();
+			} else {
+				instance.updateOptions(options);
+			}
+			return instance;
+		}
+
+		/**
 		 * Render the monthly incoming / outgoing / net area chart
 		 */
 		function render_monthly_chart() {
@@ -331,7 +411,7 @@
 				net.push(stats_data.monthly[i].net);
 			}
 
-			var chart = new ApexCharts(document.querySelector('#chart-monthly'), {
+			stats_chart('#chart-monthly', {
 				chart: {
 					type: 'area',
 					height: 380,
@@ -355,14 +435,13 @@
 					categories: monthly_labels(periods),
 					axisBorder: { show: false },
 					axisTicks: { show: false },
-					labels: { style: { fontSize: '11px' } },
+					labels: { style: { fontSize: '11px', colors: chart_muted_color() } },
 				},
-				yaxis: { labels: { formatter: format_money_short, style: { fontSize: '11px' } } },
+				yaxis: { labels: { formatter: format_money_short, style: { fontSize: '11px', colors: chart_muted_color() } } },
 				tooltip: { y: { formatter: format_money } },
-				grid: { padding: { left: 10, right: 10 } },
-				legend: { position: 'top', horizontalAlign: 'right', fontSize: '12px' },
+				grid: { padding: { left: 10, right: 10 }, borderColor: chart_is_dark() ? 'rgba(223, 229, 221, 0.12)' : '#e0e0e0' },
+				legend: { position: 'top', horizontalAlign: 'right', fontSize: '12px', labels: { colors: chart_text_color() } },
 			});
-			chart.render();
 		}
 
 		/**
@@ -405,7 +484,7 @@
 				colors.push('#6b737d');
 			}
 
-			var chart = new ApexCharts(document.querySelector('#chart-category-donut'), {
+			stats_chart('#chart-category-donut', {
 				chart: {
 					type: 'donut',
 					height: 380,
@@ -416,9 +495,9 @@
 				series: values,
 				labels: names,
 				colors: colors,
-				stroke: { width: 2, colors: ['#f6f3ed'] },
+				stroke: { width: 2, colors: [chart_surface_color()] },
 				dataLabels: { enabled: false },
-				legend: { position: 'bottom', fontSize: '12px' },
+				legend: { position: 'bottom', fontSize: '12px', labels: { colors: chart_text_color() } },
 				tooltip: { y: { formatter: format_money } },
 				plotOptions: {
 					pie: {
@@ -426,12 +505,13 @@
 							size: '70%',
 							labels: {
 								show: true,
-								name: { fontSize: '12px' },
-								value: { fontSize: '22px', fontWeight: 600, formatter: format_money },
+								name: { fontSize: '12px', color: chart_muted_color() },
+								value: { fontSize: '22px', fontWeight: 600, color: chart_text_color(), formatter: format_money },
 								total: {
 									show: true,
 									label: 'Total out',
 									fontSize: '12px',
+									color: chart_muted_color(),
 									formatter: function() {
 										return format_money(stats_data.total_out);
 									},
@@ -441,23 +521,34 @@
 					},
 				},
 			});
-			chart.render();
 		}
 
 		/**
 		 * Render the incoming vs outgoing horizontal bar chart per category
+		 *
+		 * Only the first category_bar_limit categories (largest outgoing
+		 * first) are shown by default; the toggle button below the chart
+		 * expands to the full list and back.
 		 */
+		var category_bar_expanded = false;
+		var category_bar_limit = 15;
+
 		function render_category_bar() {
+			var totals = stats_data.category_totals;
+			if (category_bar_expanded === false && totals.length > category_bar_limit) {
+				totals = totals.slice(0, category_bar_limit);
+			}
+
 			var names = [];
 			var incoming = [];
 			var outgoing = [];
-			for (var i = 0; i < stats_data.category_totals.length; i++) {
-				names.push(stats_data.category_totals[i].name);
-				incoming.push(stats_data.category_totals[i].amount_in);
-				outgoing.push(stats_data.category_totals[i].amount_out);
+			for (var i = 0; i < totals.length; i++) {
+				names.push(totals[i].name);
+				incoming.push(totals[i].amount_in);
+				outgoing.push(totals[i].amount_out);
 			}
 
-			var chart = new ApexCharts(document.querySelector('#chart-category-bar'), {
+			var options = {
 				chart: {
 					type: 'bar',
 					height: Math.max(280, 50 * names.length + 80),
@@ -474,14 +565,34 @@
 				dataLabels: { enabled: false },
 				xaxis: {
 					categories: names,
-					labels: { formatter: format_money_short },
+					labels: { formatter: format_money_short, style: { fontSize: '11px', colors: chart_muted_color() } },
 				},
-				yaxis: { labels: { maxWidth: 180, style: { fontSize: '11px' } } },
+				yaxis: { labels: { maxWidth: 180, style: { fontSize: '11px', colors: chart_text_color() } } },
 				tooltip: { y: { formatter: format_money } },
-				grid: { padding: { left: 10, right: 10 } },
-				legend: { position: 'top', horizontalAlign: 'right', fontSize: '12px' },
-			});
-			chart.render();
+				grid: { padding: { left: 10, right: 10 }, borderColor: chart_is_dark() ? 'rgba(223, 229, 221, 0.12)' : '#e0e0e0' },
+				legend: { position: 'top', horizontalAlign: 'right', fontSize: '12px', labels: { colors: chart_text_color() } },
+			};
+
+			stats_chart('#chart-category-bar', options);
+
+			category_bar_update_toggle();
+		}
+
+		/**
+		 * Update the collapsible category bar toggle label
+		 */
+		function category_bar_update_toggle() {
+			var toggle = document.querySelector('#category-bar-toggle');
+			if (toggle === null) {
+				return;
+			}
+
+			var total = stats_data.category_totals.length;
+			if (category_bar_expanded === true) {
+				toggle.textContent = 'Show top ' + category_bar_limit + ' categories';
+			} else {
+				toggle.textContent = 'Show all ' + total + ' categories';
+			}
 		}
 
 		/**
@@ -498,7 +609,7 @@
 				colors.push(stats_data.category_monthly.series[i].color);
 			}
 
-			var chart = new ApexCharts(document.querySelector('#chart-category-stacked'), {
+			stats_chart('#chart-category-stacked', {
 				chart: {
 					type: 'bar',
 					height: 340,
@@ -515,25 +626,54 @@
 					categories: monthly_labels(stats_data.category_monthly.periods),
 					axisBorder: { show: false },
 					axisTicks: { show: false },
-					labels: { style: { fontSize: '11px' } },
+					labels: { style: { fontSize: '11px', colors: chart_muted_color() } },
 				},
-				yaxis: { labels: { formatter: format_money_short, style: { fontSize: '11px' } } },
+				yaxis: { labels: { formatter: format_money_short, style: { fontSize: '11px', colors: chart_muted_color() } } },
 				tooltip: { y: { formatter: format_money } },
-				grid: { padding: { left: 10, right: 10 } },
-				legend: { position: 'top', horizontalAlign: 'right', fontSize: '12px' },
+				grid: { padding: { left: 10, right: 10 }, borderColor: chart_is_dark() ? 'rgba(223, 229, 221, 0.12)' : '#e0e0e0' },
+				legend: { position: 'top', horizontalAlign: 'right', fontSize: '12px', labels: { colors: chart_text_color() } },
 			});
-			chart.render();
 		}
 
 		$(function() {
-			if (document.querySelector('#chart-monthly') === null) {
+			if (document.querySelector('#chart-category-donut') === null) {
 				return;
 			}
 
 			render_category_donut();
-			render_monthly_chart();
 			render_category_bar();
-			render_stacked_category_chart();
+
+			$('#category-bar-toggle').on('click', function() {
+				category_bar_expanded = category_bar_expanded === false;
+				render_category_bar();
+			});
+
+			// The month-by-month charts only exist when no single month is
+			// selected: the template drops them for a month filter
+			if (document.querySelector('#chart-monthly') !== null) {
+				render_monthly_chart();
+			}
+			if (document.querySelector('#chart-category-stacked') !== null) {
+				render_stacked_category_chart();
+			}
+
+			// Theme toggle: ApexCharts bakes text colours in at render
+			// time, so a theme flip re-renders every chart from scratch
+			document.addEventListener('themechange', function() {
+				for (var selector in stats_chart_instances) {
+					stats_chart_instances[selector].destroy();
+					delete stats_chart_instances[selector];
+				}
+
+				render_category_donut();
+				render_category_bar();
+				if (document.querySelector('#chart-monthly') !== null) {
+					render_monthly_chart();
+				}
+				if (document.querySelector('#chart-category-stacked') !== null) {
+					render_stacked_category_chart();
+				}
+			});
 		});
 	</script>
 {% endblock javascript %}

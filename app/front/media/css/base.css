@@ -354,3 +354,171 @@ body {
 	color: var(--tblr-secondary, #6b737d);
 	font-size: 0.875rem;
 }
+
+/*
+ * Dark mode
+ *
+ * The light palette above is declared at :root and this file loads
+ * after tabler, so on equal specificity these values would beat
+ * tabler's own [data-bs-theme="dark"] rules. Dark mode therefore
+ * re-declares them — and, crucially, the **gray ramp itself**: tabler
+ * composes every dark surface from its gray scale (cards and panels
+ * from gray-800, the page from gray-900, muted text from gray-400…)
+ * and ships a blue-tinted one. Re-tuning the grays to green-tinted
+ * darks makes every component surface — cards, modals, forms,
+ * dropdowns, tables — follow the same forest-green system instead of
+ * a blue-gray one clashing with the green body. The theme is set
+ * before paint by an inline script in the layout head; the toggle
+ * buttons are wired in base.js.
+ */
+[data-bs-theme="dark"] {
+	/* The gray ramp, re-tuned green (tabler's is blue-tinted) */
+	--tblr-gray-900: #131b14;
+	--tblr-gray-800: #1a241b;
+	--tblr-gray-700: #2b382b;
+	--tblr-gray-600: #414f41;
+	--tblr-gray-500: #66746a;
+	--tblr-gray-400: #94a394;
+	--tblr-gray-300: #c5cfc5;
+	--tblr-gray-200: #dfe5dd;
+	--tblr-gray-100: #e9efe7;
+	--tblr-gray-50: #f3f7f1;
+
+	/* Brand palette on dark surfaces */
+	--tblr-primary: #6fb26d;
+	--tblr-primary-rgb: 111, 178, 109;
+	--tblr-secondary: #a3bda3;
+	--tblr-secondary-rgb: 163, 189, 163;
+	--tblr-body-color: #dfe5dd;
+	--tblr-body-color-rgb: 223, 229, 221;
+	--tblr-body-bg: #131b14;
+	--tblr-body-bg-rgb: 19, 27, 20;
+	--tblr-emphasis-color: #f2f5f0;
+	--tblr-emphasis-color-rgb: 242, 245, 240;
+	--tblr-secondary-color: #cfd8cd;
+	--tblr-secondary-color-rgb: 207, 216, 205;
+	--tblr-secondary-bg: #1a241b;
+	--tblr-secondary-bg-rgb: 26, 36, 27;
+	--tblr-tertiary-color: #8f9a8f;
+	--tblr-tertiary-color-rgb: 143, 154, 143;
+	--tblr-tertiary-bg: #1a241b;
+	--tblr-tertiary-bg-rgb: 26, 36, 27;
+	--tblr-link-color: #7fb87d;
+	--tblr-link-color-rgb: 127, 184, 125;
+	--tblr-link-hover-color: #a5d0a3;
+	--tblr-link-hover-color-rgb: 165, 208, 163;
+	--tblr-code-color: #c5cfc5;
+	--tblr-border-color: rgba(223, 229, 221, 0.14);
+	--tblr-border-color-translucent: rgba(223, 229, 221, 0.12);
+	--tblr-box-shadow: rgba(0, 0, 0, 0.4) 0 2px 4px 0;
+	--tblr-box-shadow-sm: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.4);
+	--tblr-box-shadow-lg: 0 1rem 3rem rgba(0, 0, 0, 0.5);
+	--tblr-focus-ring-color: rgba(111, 178, 109, 0.3);
+	--tblr-icon-color: #dfe5dd;
+	--tblr-disabled-color: #6f7a6f;
+	--amber-dark: #f0b355;
+
+	/* Emphasis and subtle variants: green where tabler uses blue */
+	--tblr-primary-text-emphasis: #8fce8d;
+	--tblr-secondary-text-emphasis: #a3bda3;
+	--tblr-primary-bg-subtle: #14231a;
+	--tblr-primary-border-subtle: #2c4a2e;
+}
+
+/* Plain badges (no background class): light text on dark surfaces */
+[data-bs-theme="dark"] .badge:not([class*=" bg-"]):not([class*=" text-bg-"]) {
+	--tblr-badge-color: #dfe5dd !important;
+}
+
+/* Full-page loader on dark surfaces */
+[data-bs-theme="dark"] .page-loader {
+	background: rgba(10, 15, 11, 0.75);
+}
+
+[data-bs-theme="dark"] .page-loader-box {
+	background: var(--tblr-gray-800);
+	box-shadow: 0 1px 6px rgba(0, 0, 0, 0.4);
+}
+
+[data-bs-theme="dark"] .page-loader-text {
+	color: var(--tblr-secondary);
+}
+
+/*
+ * Select2 surfaces: the bootstrap-5 theme hardcodes light colours
+ * (#fff backgrounds, #212529 text), so dark mode re-skins its
+ * selection box, dropdown panel, search field, options and choice
+ * pills. The dropdown container attaches to <body>, inside the themed
+ * <html>, so the attribute selector reaches it.
+ */
+[data-bs-theme="dark"] .select2-container--bootstrap-5 .select2-selection {
+	color: var(--tblr-body-color);
+	background-color: var(--tblr-gray-800);
+	border-color: rgba(223, 229, 221, 0.2);
+}
+
+[data-bs-theme="dark"] .select2-container--bootstrap-5 .select2-selection__rendered {
+	color: var(--tblr-body-color);
+}
+
+[data-bs-theme="dark"] .select2-container--bootstrap-5 .select2-dropdown {
+	color: var(--tblr-body-color);
+	background-color: var(--tblr-gray-800);
+	border-color: rgba(223, 229, 221, 0.2);
+}
+
+[data-bs-theme="dark"] .select2-container--bootstrap-5 .select2-search--dropdown .select2-search__field {
+	color: var(--tblr-body-color);
+	background-color: var(--tblr-gray-900);
+	border-color: rgba(223, 229, 221, 0.2);
+}
+
+[data-bs-theme="dark"] .select2-container--bootstrap-5 .select2-results__option {
+	color: var(--tblr-body-color);
+}
+
+[data-bs-theme="dark"] .select2-container--bootstrap-5 .select2-dropdown .select2-results__options .select2-results__option.select2-results__option--highlighted {
+	color: #fff;
+	background-color: rgba(var(--tblr-primary-rgb), 0.45);
+}
+
+[data-bs-theme="dark"] .select2-container--bootstrap-5 .select2-selection--multiple .select2-selection__rendered .select2-selection__choice {
+	color: #dfe5dd;
+	background-color: rgba(var(--tblr-primary-rgb), 0.25);
+	border-color: rgba(var(--tblr-primary-rgb), 0.4);
+}
+
+/*
+ * Theme toggle buttons: ghost style — borderless icon buttons that
+ * take the colour of their context (white in the forest-green navbar,
+ * muted in the footer and on the login page) with the brand accent on
+ * hover, so they read as part of the chrome instead of a boxed
+ * control. The icons carry the state: circle-half = auto (system
+ * preference), sun = light, moon = dark (see base.js).
+ */
+.theme-toggle {
+	padding: 0.25rem 0.4rem;
+	line-height: 1;
+	font-size: 1.2rem;
+	border: 0;
+	background: transparent;
+	box-shadow: none;
+	color: var(--tblr-tertiary-color);
+}
+
+.theme-toggle:hover,
+.theme-toggle:focus {
+	color: var(--tblr-primary);
+	background: transparent;
+	box-shadow: none;
+	outline: none;
+}
+
+.navbar .theme-toggle {
+	color: rgba(255, 255, 255, 0.85);
+}
+
+.navbar .theme-toggle:hover,
+.navbar .theme-toggle:focus {
+	color: #e8a13c;
+}

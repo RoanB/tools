@@ -1,0 +1,341 @@
+{% extends "_default/layout.base.twig" %}
+
+{% block title %}Fall force · Tools{% endblock title %}
+
+{% block content %}
+	<div class="page-header d-print-none mb-3">
+		<div class="d-flex justify-content-between align-items-center">
+			<h1 class="page-heading mb-0">Fall force calculator</h1>
+			<button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#fallforce-info-modal" title="How this works">
+				<i class="ti ti-info-circle me-1"></i>How this works
+			</button>
+		</div>
+	</div>
+
+	<div class="row g-3">
+		<div class="col-12 col-lg-5">
+			<div class="card">
+				<div class="card-header">
+					<h3 class="card-title">The system <span class="text-secondary small fw-normal ms-1">Caver, drop and rope in use</span></h3>
+				</div>
+				<div class="card-body">
+					<div class="mb-4">
+						<label class="form-label d-flex justify-content-between" for="mass">
+							<span>Body mass</span>
+							<strong id="mass-out">80 kg</strong>
+						</label>
+						<input type="range" class="form-range" id="mass" min="40" max="200" value="80" step="1">
+					</div>
+
+					<div class="mb-4">
+						<label class="form-label d-flex justify-content-between" for="drop">
+							<span>Drop height <span class="text-secondary small">(free fall before the rope catches)</span></span>
+							<strong id="drop-out">1.0 m</strong>
+						</label>
+						<input type="range" class="form-range" id="drop" min="0" max="20" value="1" step="0.1">
+					</div>
+
+					<div class="mb-4">
+						<label class="form-label d-flex justify-content-between" for="rope">
+							<span>Rope in system <span class="text-secondary small">(from the anchor to the caver)</span></span>
+							<strong id="rope-out">10 m</strong>
+						</label>
+						<input type="range" class="form-range" id="rope" min="1" max="100" value="10" step="1">
+					</div>
+
+					<div class="mb-1">
+						<label class="form-label" for="rope-type">Rope type</label>
+						<select class="form-select" id="rope-type" data-width="100%">
+							{% for rope_id, rope in rope_types %}
+								<option value="{{ rope_id }}" data-ea="{{ rope.ea }}" data-mbs="{{ rope.mbs }}" data-knot="{{ rope.knot }}" data-dynamic="{{ rope.dynamic ? 1 : 0 }}"{% if rope_id == 'caving-line' %} selected{% endif %}>{{ rope.label }}</option>
+							{% endfor %}
+						</select>
+						<div class="form-text text-secondary small" id="mbs-out"></div>
+					</div>
+				</div>
+			</div>
+
+			<div class="alert alert-danger py-2 small mt-3" id="warn-injury" style="display:none;"></div>
+			<div class="alert alert-danger py-2 small mt-3" id="warn-break" style="display:none;"></div>
+		</div>
+
+		<div class="col-12 col-lg-7">
+			<div class="row g-3">
+				<div class="col-6">
+					<div class="card">
+						<div class="card-body p-3 text-center">
+							<div class="text-secondary small mb-1">Fall factor</div>
+							<div class="h1 font-display mb-2" id="out-ff">0.10</div>
+							<div class="progress" style="height: 6px;">
+								<div class="progress-bar" id="ff-bar" style="width: 5%"></div>
+							</div>
+							<div class="text-secondary small mt-2">free-fall height &divide; rope length</div>
+						</div>
+					</div>
+				</div>
+				<div class="col-6">
+					<div class="card">
+						<div class="card-body p-3 text-center">
+							<div class="text-secondary small mb-1">Peak force</div>
+							<div class="h1 font-display mb-0" id="out-kn">— kN</div>
+							<div class="text-secondary small" id="out-kgf">— kgf</div>
+							<div class="text-secondary small mt-2">the hardest pull at the bottom of the fall</div>
+						</div>
+					</div>
+				</div>
+				<div class="col-6">
+					<div class="card">
+						<div class="card-body p-3 text-center">
+							<div class="text-secondary small mb-1">Static equivalent</div>
+							<div class="h1 font-display mb-0" id="out-static">— kN</div>
+							<div class="text-secondary small" id="out-static-kgf">— kgf</div>
+							<div class="text-secondary small mt-2">just hanging: your body weight</div>
+						</div>
+					</div>
+				</div>
+				<div class="col-6">
+					<div class="card">
+						<div class="card-body p-3 text-center">
+							<div class="text-secondary small mb-1">Rope stretch at peak</div>
+							<div class="h1 font-display mb-0" id="out-elong-m">— m</div>
+							<div class="text-secondary small" id="out-elong-pct">— % of rope length</div>
+							<div class="text-secondary small mt-2">how far the rope gives while catching you</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="card mt-3">
+				<div class="card-body py-3 text-center" id="summary-out">
+				</div>
+				<div class="card-body py-2 border-top text-secondary small">
+					<div><strong>Fall factor</strong> = free-fall height &divide; rope in the system. Green below 0.9, orange 0.9&ndash;1, red from 1 &mdash; doubled for dynamic rope, where fall factor 1 is a normal climbing fall.</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	{# ── Explanation modal ── #}
+	<div class="modal fade" id="fallforce-info-modal" tabindex="-1" aria-hidden="true">
+		<div class="modal-dialog modal-lg modal-dialog-scrollable">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title">How this works</h5>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+				</div>
+				<div class="modal-body">
+					<p class="mb-2">
+						<strong>Fall factor</strong> is the free-fall height divided by the
+						length of rope that catches it. It is independent of the body
+						mass: a fall factor 1 means the drop equals the rope in the
+						system. On the rope (hanging, descending) the factor is
+						effectively 0; falls onto a short cowstail routinely reach
+						0.5&nbsp;&ndash;&nbsp;1. A fall factor above 2 is never
+						possible: the fall can never be longer than twice the rope
+						in the system. The colour bar marks the caution zones:
+						on dynamic rope a fall factor 1 is a perfectly normal
+						climbing fall, so its bar stays green up to 2 (the maximum
+						possible) and turns orange only there; semi-static and
+						static rope go green below 0.9, orange from 0.9 to 1, red
+						from 1.
+					</p>
+					<p class="mb-2">
+						<strong>What the rope numbers mean:</strong> the rope options
+						are the <em>stretch figures from rope datasheets</em> — the one
+						number cavers and climbers actually compare. Internally the
+						calculator converts each into its spring stiffness (EA —
+						the load that would stretch the rope to double its
+						length): 4.5% stretch at 150 kg gives EA ≈ 33 kN, 3.5%
+						gives ≈ 42 kN, 1% gives ≈ 150 kN, and so on. Force grows with the
+						<em>square root</em> of EA, not with EA:
+						at a fall factor 1 with an 80&nbsp;kg caver the model gives
+					</p>
+					<ul class="mb-2">
+						<li>Dynamic rope — Mammut Infinity 9.5 (≈ 7% at 80 kg): ≈ 7.1 kN peak, rope stretches ≈ 28%</li>
+						<li>Type A — Beal Spelenium 10.5 (≈ 3.5% at 150 kg): ≈ 8.9 kN, stretch ≈ 21%</li>
+						<li>Type B — Beal Spelenium 8.5 (≈ 4.5% at 150 kg): ≈ 8.0 kN, stretch ≈ 24%</li>
+						<li>Type B — Petzl Push 9 mm (≈ 3.7% at 150 kg): ≈ 8.7 kN, stretch ≈ 22%</li>
+						<li>Cord — Beal Spelenium 8 mm (≈ 6.5%): ≈ 6.8 kN, stretch ≈ 30%</li>
+						<li>Cord — Petzl Caving Line 7 mm (≈ 4.5%): ≈ 8.0 kN, stretch ≈ 24%</li>
+						<li>Low-stretch Dyneema (≈ 1% at 150 kg): ≈ 16.1 kN, stretch ≈ 11% — approaching the rope's own breaking strength</li>
+					</ul>
+					<p class="mb-2">
+						<strong>The model is the rigid worst case:</strong> all the
+						drop energy goes into the rope. Real systems absorb much of
+						it — knots, harness, body and friction over edges and
+						rebelays — which is why falls below fall factor 1 on
+						semi-static rope usually feel uneventful. Use the numbers
+						to compare systems, not as exact physics.
+					</p>
+					<p class="mb-0 text-secondary">
+						Rule of thumb: ~6 kN (Petzl / rescue guideline) is where
+						injury risk starts, and a knot drops rope strength to
+						~60&ndash;70% of its ~22 kN minimum — fall factor 1 on
+						semi-static approaches that. The stretch shown is dynamic
+						stretch at peak force, not the EN 1891 static measurement.
+						Each rope's breaking strength — and its knot figure — is
+						shown under the rope select. The red alerts cover the two
+						ways a big drop goes wrong: <strong>what you feel</strong>
+						(the model peak minus ~750 J of absorption by the system
+						itself — knot tightening, harness, body — firing above
+						~10 kN, serious-injury territory well past the 6 kN
+						guideline) and <strong>what the rope holds</strong> (the
+						model's peak force against that knot strength plus the
+						same ~750 J). Note the knot figure is a certified
+						<em>hold</em> (EN 1891: hold for 3 minutes with a
+						figure-of-8), a guarantee rather than the exact break
+						point — exceeding it transiently means the knot must be
+						inspected, not that the rope has parted.
+					</p>
+					<p class="mb-1 text-secondary border-top pt-3">
+						<strong>Sources:</strong> the rope figures come from the
+						manufacturers' own datasheets and the standards' test
+						definitions.
+					</p>
+					<ul class="mb-2 text-secondary small">
+						<li><a href="https://www.petzl.com/GB/en/Sport/Ropes/CAVING-LINE-7-mm" target="_blank" rel="noopener">Petzl — Caving Line 7 mm</a>: 14 kN breaking / 8 kN figure-of-8 / 4.5% static elongation (EN 564)</li>
+						<li><a href="https://www.petzl.com/US/en/Sport/Ropes/PUSH-9-mm" target="_blank" rel="noopener">Petzl — Push 9 mm</a>: 20 kN / 12 kN figure-of-8 / 3.7%, impact force 4.3 kN at factor 0.3, 5 factor-1 falls (EN 1891 type B)</li>
+						<li><a href="https://www.beal-planet.com/products/spelenium-8-5mm-unicore-1" target="_blank" rel="noopener">Beal — Spelenium 8.5</a>: 22.6 kN / 12 kN held 3 min with figure-of-8 / 4.5% (EN 1891 type B)</li>
+						<li><a href="https://us.beal-planet.com/products/spelenium-10-5mm" target="_blank" rel="noopener">Beal — Spelenium 10.5</a>: 30 kN / 15 kN held 3 min with figure-of-8 / 3.5% (EN 1891 type A)</li>
+						<li><a href="https://beal.pl/files/catalogs/BEAL_Katalog_SPORT_2025_EN32.pdf" target="_blank" rel="noopener">Beal sport catalog 2025</a>: Spelenium range — breaking loads, guaranteed ≥ 5 factor-1 falls, lab impact forces and elongations, incl. the EN 564 Spelenium 8 mm (15.4 kN / 6.5%)</li>
+						<li><a href="https://www.climbing-gear.com/rope/mammut-9-5-infinity-dry" target="_blank" rel="noopener">Mammut Infinity 9.5</a> (manufacturer figures, archived): 8.7 kN impact force at factor 1.77, 6.8% static elongation, 30% dynamic — EN 892 / UIAA 101. Mammut discontinued the Infinity; its construction lives on in the 9.5 Crag</li>
+						<li><strong>Standards:</strong> EN 1891 (semi-static, type A/B — §4.10 impact-force test ≤ 6 kN on a short sample at factor ~0.3, §4.12.1 static strength = the pull-to-failure figures quoted above), EN 892 / UIAA 101 (dynamic, factor-1.77 drop test), EN 564 (mountaineering cords)</li>
+						<li><strong>~6 kN body guideline:</strong> the working figure of vertical-rescue and caving practice (Petzl technical documentation and rescue training)</li>
+					</ul>
+					<p class="mb-0 text-secondary small">
+						What is <em>not</em> manufacturer-published: the dynamic
+						rope and Dyneema breaking/knot figures (conservative class
+						estimates), the Spelenium 8 mm knot figure (the ~65% knot
+						rule), and the 750 J system absorption — that last one is
+						this calculator's own calibration, which closes against
+						Beal's published EN 1891 test forces when the knotted
+						figure-of-8 is credited with ~250 J of it.
+					</p>
+				</div>
+			</div>
+		</div>
+	</div>
+{% endblock content %}
+
+{% block javascript %}
+	<script>
+		(function () {
+			var g = 9.81;
+
+			function calc() {
+				var m = parseFloat(document.getElementById('mass').value);
+				var h = parseFloat(document.getElementById('drop').value);
+				var L = parseFloat(document.getElementById('rope').value);
+				var selected_rope = $('#rope-type option:selected');
+				var EA = parseFloat(selected_rope.data('ea'));
+				var mbs = parseFloat(selected_rope.data('mbs'));
+				var knot = parseFloat(selected_rope.data('knot'));
+
+				document.getElementById('mass-out').textContent = m + ' kg';
+				document.getElementById('drop-out').textContent = h.toFixed(1) + ' m';
+				document.getElementById('rope-out').textContent = L + ' m';
+
+				var ff = h / L;
+				document.getElementById('out-ff').textContent = ff.toFixed(2);
+
+				// Caution zones: on dynamic rope a fall factor 1 is a
+				// normal climbing fall, so its bar stays green up to 2 —
+				// the maximum possible fall factor. Semi-static and static
+				// rope turn orange just before fall factor 1 and red from 1.
+				// A fall factor above 2 is physically impossible: the fall
+				// can never be longer than twice the rope in the system.
+				// The rope kind is read from the option's data-dynamic
+				// flag — never inferred from EA, which broke when the
+				// semi-static stiffnesses were recalibrated to linear
+				// datasheet values in the same range as the dynamic rope.
+				var is_dynamic = parseInt(selected_rope.data('dynamic'), 10) === 1;
+				var ff_green = is_dynamic ? 2 : 0.9;
+				var ff_orange = is_dynamic ? 2 : 1;
+
+				var bar = document.getElementById('ff-bar');
+				var bar_pct = Math.min(ff / ff_orange, 1) * 100;
+				bar.style.width = bar_pct.toFixed(1) + '%';
+				bar.className = 'progress-bar';
+
+				if (ff < ff_green) {
+					bar.classList.add('bg-success');
+				} else if (ff < ff_orange) {
+					bar.classList.add('bg-warning');
+				} else {
+					bar.classList.add('bg-danger');
+				}
+
+				var mg = m * g;
+				var peak = mg + Math.sqrt(mg * mg + 2 * EA * mg * h / L);
+				var peak_kn = peak / 1000;
+				var peak_kgf = peak / g;
+
+				document.getElementById('out-kn').textContent = peak_kn.toFixed(2) + ' kN';
+				document.getElementById('out-kgf').textContent = peak_kgf.toFixed(0) + ' kgf';
+
+				var static_kn = mg / 1000;
+				document.getElementById('out-static').textContent = static_kn.toFixed(2) + ' kN';
+				document.getElementById('out-static-kgf').textContent = m.toFixed(0) + ' kgf';
+
+				var elong_m = peak / (EA / L);
+				var elong_pct = (elong_m / L) * 100;
+				document.getElementById('out-elong-m').textContent = elong_m.toFixed(2) + ' m';
+				document.getElementById('out-elong-pct').textContent = elong_pct.toFixed(1) + '% of rope length';
+
+				// Plain-language summary under the results
+				var summary = document.getElementById('summary-out');
+				if (ff > 2) {
+					summary.innerHTML = 'A fall factor above 2 is not physically possible — a fall can never be longer than twice the rope in the system. Check the drop height and rope length.';
+				} else if (ff === 0) {
+					summary.innerHTML = 'Hanging still: the rope holds your body weight (' + static_kn.toFixed(1) + ' kN) with no impact force.';
+				} else {
+					summary.innerHTML = 'A fall like this peaks at about <strong>' + peak_kn.toFixed(1) + ' kN</strong> — around <strong>' + Math.round(peak / mg) + '&times; your body weight</strong> — while the rope catches you over <strong>' + Math.round(elong_m * 100) + ' cm</strong> of stretch.';
+				}
+
+				// Breaking strength of the selected rope, and the red
+				// rope-failure alert. The knot figure is a certified hold
+				// (EN 1891: hold X kN for 3 minutes with a figure-of-8), a
+				// guarantee — not the exact break point. The comparison
+				// carries a tolerance: besides the rope's own capacity, the
+				// system absorbs roughly 750 J — the knot tightening
+				// (~250 J) plus the harness and body deforming (~500 J). In
+				// force terms that lifts the threshold to
+				// sqrt(knot^2 + 2*k*E_sys) with k = EA / L, so short, soft
+				// catches stay below it.
+				var E_sys = 750;
+				var rope_k = EA / L;
+				var threshold_kn = Math.sqrt(Math.pow(knot * 1000, 2) + 2 * rope_k * E_sys) / 1000;
+				document.getElementById('mbs-out').textContent = 'Breaking strength: ' + mbs + ' kN — ' + knot + ' kN with a knot (certified hold) — ≈ ' + threshold_kn.toFixed(1) + ' kN after system absorption';
+				document.getElementById('warn-break').style.display = peak_kn > threshold_kn ? 'block' : 'none';
+				document.getElementById('warn-break').innerHTML = 'The peak force exceeds what this rope is certified to hold with a knot tied (' + knot + ' kN / 3 min — ≈ ' + threshold_kn.toFixed(1) + ' kN after system absorption): the knot is loaded beyond its guarantee and in this worst-case model the rope can fail. Reduce the fall factor; inspect the rope and knot after any hard catch.';
+
+				// Second alert: the catch itself. The same energy bookkeeping
+				// as the rope alert, but asking what the caver's body feels:
+				// the model peak with the system's own ~750 J absorption
+				// (knot tightening, harness, body) taken out of the drop
+				// energy before the rope spring does its work. Injury risk
+				// becomes real above ~6 kN (the Petzl guideline); above
+				// ~10 kN that absorption no longer saves you — roughly 13x
+				// body weight on the harness, serious-injury territory. The
+				// alert fires only in that second band, so an ordinary
+				// fall factor 1 catch on a semi-static (felt ~8 kN) stays
+				// silent and a stiff rope at a modest factor does not.
+				var felt = mg + Math.sqrt(Math.max(0, mg * mg + 2 * rope_k * (mg * h - E_sys)));
+				var felt_kn = felt / 1000;
+				document.getElementById('warn-injury').style.display = felt_kn > 10 ? 'block' : 'none';
+				document.getElementById('warn-injury').innerHTML = 'Even after the system absorbs its share, this catch still loads you with <strong>&asymp; ' + felt_kn.toFixed(1) + ' kN</strong> — about <strong>' + Math.round(felt / mg) + '&times; your body weight</strong> — far beyond the ~6 kN injury guideline. The rope may hold; you will not be okay. Shorten the fall, put more rope in the system, or use a more elastic rope.';
+			}
+
+			// 'input' covers the sliders while dragging; 'change' covers the
+			// rope-type select. The select is wrapped by select2, which
+			// fires its change through jQuery — a jQuery trigger never
+			// reaches native addEventListener, so the binding must be
+			// jQuery too.
+			['mass', 'drop', 'rope', 'rope-type'].forEach(function (id) {
+				$('#' + id).on('input change', calc);
+			});
+
+			calc();
+		}());
+	</script>
+{% endblock javascript %}

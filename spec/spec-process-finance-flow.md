@@ -1,6 +1,6 @@
 ---
 title: Finance Flow (Bank Import, Categorization and Statistics)
-version: 1.3
+version: 1.4
 date_created: 2026-11-06
 last_updated: 2026-11-09
 owner: Roan Buysse
@@ -43,7 +43,7 @@ This specification defines the finance area of the tool: importing bank statemen
 | Global rule position | `finance_rule.sort_order`: one shared, contiguous position (1..N) across **all** rules regardless of category; the first rule in the list wins conflicts. Set by drag & drop. |
 | Rule field | A transaction field a rule inspects: `description`, `counterparty_name`, `counterparty_account`, `communication` (`finance_rule_field`). |
 | Match type | How a rule pattern is compared: `exact`, `contains`, `fuzzy`, `regex`. |
-| import_key | Unique key deduplicating transactions: account id + transaction number + value date + amount + first 191 chars of communication. |
+| import_key | Unique key deduplicating transactions: account id + transaction number (compared **without leading zeros** — KBC zero-padded its extract numbers from 2026 on, `2026021` → `02026021`) + value date + amount + first 191 chars of communication. |
 | Incoming flag | `bank_transaction.incoming`: `1` incoming, `0` outgoing, `NULL` not reviewed. Set on import for uncategorized transactions; cleared when a category is assigned. |
 | Savings account | A `bank_account` with `savings = 1`: no statement is ever imported into it (it is not an import target, switcher entry or filter option), but its IBAN participates in the internal-transfer check — any transaction connected to it (outgoing **or** incoming) counts as internal. Its IBAN is mandatory. |
 | Internal transfer | A transaction whose counterparty IBAN/name matches another configured bank account. Stored with `internal = 1`, never categorized, excluded from statistics and the review queue, and **hidden from every transaction list by default** — the archive's Transfers filter is the only way to list them. |
@@ -55,7 +55,7 @@ This specification defines the finance area of the tool: importing bank statemen
 ## 3. Requirements, Constraints & Guidelines
 
 - **REQ-001**: Every transaction must carry `bank_account_id`, `transaction_number`, `value_date` and a non-zero `amount` (`NOT NULL`, FKs where applicable); rows failing this are skipped at import, never partially stored.
-- **REQ-002**: Re-importing an export must never create duplicates. Dedup relies on the `import_key` unique index and `Bank_Transaction::get_by_import_key()`; the communication component is truncated to 191 characters (MySQL index limit).
+- **REQ-002**: Re-importing an export must never create duplicates. Dedup relies on the `import_key` unique index and `Bank_Transaction::get_by_import_key()`; the communication component is truncated to 191 characters (MySQL index limit). The transaction number is compared with leading zeros stripped on both sides (`TRIM(LEADING '0' …)`), so a bank changing its export format's padding cannot store a statement twice; the number itself is stored as delivered. Known edge: a substantive text change in the communication (e.g. Keytrade swapping the merchant name for the cardholder name) still evades the key — `util/bin/cleanup_duplicates.php` finds and archives such historical duplicates (cross-batch twins on account + date + amount).
 - **REQ-003**: Rules must be applied **strictly in one explicit global order**: every active rule occupies a single global position (`sort_order`, unique and contiguous 1..N across all rules). The categorizer walks the list top to bottom and stops at the **first** rule that matches; only that rule's category is applied, the rules below it are never evaluated. The order is set by drag & drop (SortableJS) in the rules list and saved immediately on drop; a rule lower in the order can never override a rule above it. New rules are appended at the end (they match last).
 - **REQ-004**: Assigning a category to a transaction must clear the `incoming` flag (`NULL`); after that the amount sign governs direction for that transaction.
 - **REQ-005**: Internal transfers must never be categorized, never appear in the review queue (`internal = 0` conditions), and never inflate statistics. `bank_transaction.internal` is `NOT NULL DEFAULT 0` (migration `20260904_000005`).
@@ -117,14 +117,16 @@ The full re-index sweep lives in `lib/component/Bank/Reindex.php` (`Bank_Reindex
 
 ### 4.4 `Bank_Stats` (lib/component/Bank/Stats.php)
 
-Static methods, all `(?int $bank_account_id = null, ?int $year = null)`, all excluding archived rows, sharing `get_where()`/`get_params()` (optional table alias):
+Static methods, all `(?int $bank_account_id = null, ?int $year = null, ?int $month = null)`, all excluding archived rows and internal transfers, sharing `get_where()`/`get_params()` (optional table alias, optional `MONTH(value_date)` condition):
 
-- `get_totals()` — incoming/outgoing/net totals.
-- `get_transfers()` — internal-transfer totals.
-- `get_monthly()` — 12 zero-filled months when a year is selected, calendar grouping by `YEAR/MONTH(value_date)`.
+- `get_totals()` — incoming/outgoing/net totals plus `avg_per_day` (outgoing divided by the calendar days of the selected month or year, or the span between first and last transaction across all years) and the `days` it was computed from.
+- `get_biggest_outgoing()` — the single largest outgoing transaction of the selection (amount, counterparty, communication, value date); empty array when none.
+- `get_monthly()` — 12 zero-filled months when a year is selected, calendar grouping by `YEAR/MONTH(value_date)`; a month filter returns only that month.
 - `get_category_totals()` — per category outgoing (JOIN `finance_category`), uncategorized grouped under a grey row (`UNCATEGORIZED_COLOR`), ordered by outgoing desc.
 - `get_category_monthly(top_categories = 8)` — pivoted `periods` + `series`, top 8 categories by outgoing with the rest folded into "Other".
 - `get_top_counterparties(limit = 10)` — top outgoing counterparties; the UI links each to `/finances/transactions?search=<name>`.
+
+Internal-transfer totals are **not** exposed here by design: internal transfers are excluded from every aggregation and the stats page shows nothing about them.
 
 ### 4.5 Web modules
 
@@ -133,7 +135,7 @@ Static methods, all `(?int $bank_account_id = null, ?int $year = null)`, all exc
 | `Finances` `/finances` | `display` (default), `detail`, `handle`, `reindex`, `preview`, `import` | Overview: account + year `data-keep-params` selects (accounts = `get_all_uploadable()`, savings accounts absent), stats from `Bank_Transaction::get_stats()`, uncategorized count (internal excluded), searchable per-year transaction pager keyed to one account/year — the pager always adds `internal = 0`, internal transfers are never listed here. The import target and both preview/import steps reject savings accounts with the sticky error `savings`. The handle page's save accepts a per-row "create rule" checkbox that appends a fuzzy counterparty rule for the just-assigned category (the teach loop — see `spec-design-categorization-flow.md`). |
 | `Finances\Transactions` `/finances/transactions` | `display`, `archive`, `restore`, `detail`, `export`, `import_categories`, `import_categories_confirm` | Cross-account list; filters: search, account (uploadable accounts only), year, date from/to, category, direction, amount min/max, transfers (`?internal`: `''` hide (default) / `all` include / `internal` only, `exclude` accepted as a synonym of the default; "More filters" collapse, auto-opened when one is active via `filter_advanced_count` — the hidden default does not count as active), status (`active`/`archived`/`all`, default `active`). Bounds apply to absolute amounts: absolutes when a direction filter is set. Card header states the transfer mode; the footer totals reuse the pager conditions, so they follow the same exclusion. Detail page archives/restores with confirm + sticky message, `back=` honoured after `str_starts_with('/finances')`, and shows the category source (rule with link / manual). `export` streams the filtered list as CSV; `import_categories` + `import_categories_confirm` apply offline category edits in a preview/confirm cycle (see `spec-design-categorization-flow.md`). |
 | `Finances\Settings` `/finances/settings` | `display`, `rules`, `rule_order`, `rule_conflicts`, `category_new/edit/delete/merge`, `rule_new/edit/delete`, `bank_accounts`, `bank_account_new/edit/delete` | Category, rule (with field checkboxes) and bank account (IBAN + savings checkbox; savings requires the IBAN, error `mandatory_for_savings`) CRUD with validation errors passed back to the form templates. The bank-account list shows **all** active accounts with a savings badge. The rules list (`?action=rules`) is a **drag & drop sortable flat list** (SortableJS 1.15, asset `/sortablejs/Sortable.min.js`, loaded in the page's `javascript` block): a drop builds a hidden form with `order[]` = rule ids top-to-bottom and POSTs it to `?action=rule_order`, which validates each id (active rules only, unknown/archived skipped) and stores position 1..N per posted order. New rules get `sort_order = MAX(sort_order) + 1` across all rules (`Finance_Rule::get_next_sort_order()` has no category restriction). Rule/category cross-references in the list are preloaded in one pass to avoid lazy N+1 lookups, and the list shows each rule's audit match count. `category_merge` moves all transactions and active rules of a source category to a target and archives the source; `rule_conflicts` renders the read-only shadow/dead-rule report of `Bank_Rule_Analysis::analyze()` (both specified in `spec-design-categorization-flow.md`). |
-| `Finances\Stats` `/finances/stats` | `display` | Read-only dashboard; account (empty = all) + year (`array_key_exists` check keeps "All years" reachable); data assigned as plain arrays, rendered with ApexCharts shipped inside the tabler npm package (`/tabler--core/dist/libs/apexcharts/...`); empty state card when no transactions. |
+| `Finances\Stats` `/finances/stats` | `display` | Read-only dashboard; account (empty = all) + year (`array_key_exists` check keeps "All years" reachable) + month (1..12, only applied together with a year — "All years" collapses and disables it); data assigned as plain arrays, rendered with ApexCharts shipped inside the tabler npm package (`/tabler--core/dist/libs/apexcharts/...`); the monthly evolution and stacked per-category charts are dropped server-side when a month is selected; summary cards include outgoing-per-day and the biggest single expense; no card or chart shows internal transfers; empty state card when no transactions. |
 
 ### 4.6 Session contracts
 
@@ -146,6 +148,7 @@ Static methods, all `(?int $bank_account_id = null, ?int $year = null)`, all exc
 ## 5. Acceptance Criteria
 
 - **AC-001**: Given an already imported KBC export, When the same file is imported again, Then the result reports `skipped = N` and no new `bank_transaction` rows exist.
+- **AC-113**: Given a stored transaction with extract number `2026021`, When a new-format export carrying the zero-padded number `02026021` for the same account, date, amount and communication is imported, Then the row is reported as `skipped` and no second row exists.
 - **AC-002**: Given a KBC file whose detected IBAN differs from the selected account, When the preview is shown, Then an informational notice names the detected account and states that confirming imports there; when the import is confirmed, Then the rows land in the **detected** account, not the posted one.
 - **AC-024**: Given a Keytrade export whose rows include a transfer towards a configured account (counterparty IBAN in the file's IBAN column), When it is parsed and previewed with any other account selected, Then detection returns `null`, the preview warns that no match was found, and importing lands the file in the **selected** account — never in the counterparty's account (this was the 2026‑11‑06 wrong-import root cause: detection matched a counterparty IBAN and claimed the file belonged to KBC).
 - **AC-025**: Given a transaction stored with `internal = 1`, When `/finances` lists the account/year, or `/finances/transactions` lists without an `internal` parameter (or with an unknown one, or the legacy `exclude`), Then the row is absent; When `?internal=all`, Then it lists next to the regular transactions; When `?internal=internal`, Then the list holds internal rows only. In all three states the statistics cards, `/finances/stats` charts and the handle queue are unchanged (they never show internal transfers), and the archive card header states the active transfer mode.

@@ -3,11 +3,12 @@
  * Bank_Stats
  *
  * Aggregation queries behind the finances statistics page. Every method
- * takes an optional bank account id and year and only considers active
- * (non-archived) transactions. Incoming and outgoing amounts are summed
- * separately so outgoings never cancel out the incoming column. Internal
- * transfers between own accounts are excluded from every aggregation: they
- * are neither income nor expense and would otherwise be double counted.
+ * takes an optional bank account id, year and month and only considers
+ * active (non-archived) transactions. Incoming and outgoing amounts are
+ * summed separately so outgoings never cancel out the incoming column.
+ * Internal transfers between own accounts are excluded from every
+ * aggregation: they are neither income nor expense and would otherwise
+ * be double counted.
  *
  * @author Roan Buysse <roan@buysse.be>
  */
@@ -26,72 +27,83 @@ class Bank_Stats {
 	/**
 	 * Get the total amounts for the given filters
 	 *
+	 * The average outgoing per day is the burn rate of the selection: the
+	 * calendar days of a selected month or year, or the span between the
+	 * first and last transaction when every year is selected.
+	 *
 	 * @access public
 	 * @param ?int $bank_account_id
 	 * @param ?int $year
+	 * @param ?int $month
 	 * @return array $totals
 	 */
-	public static function get_totals(?int $bank_account_id = null, ?int $year = null): array {
+	public static function get_totals(?int $bank_account_id = null, ?int $year = null, ?int $month = null): array {
 		$database = Database::get();
 		$row = $database->get_row(
 			'SELECT
 				COUNT(*) AS `transaction_count`,
 				COALESCE(SUM(CASE WHEN `amount` > 0 THEN `amount` ELSE 0 END), 0) AS `amount_in`,
 				COALESCE(SUM(CASE WHEN `amount` < 0 THEN -`amount` ELSE 0 END), 0) AS `amount_out`,
-				COALESCE(SUM(CASE WHEN `finance_category_id` IS NULL THEN 1 ELSE 0 END), 0) AS `uncategorized`
+				COALESCE(SUM(CASE WHEN `finance_category_id` IS NULL THEN 1 ELSE 0 END), 0) AS `uncategorized`,
+				MIN(`value_date`) AS `first_date`,
+				MAX(`value_date`) AS `last_date`
 			FROM `bank_transaction`
-			' . self::get_where($bank_account_id, $year),
-			self::get_params($bank_account_id, $year)
+			' . self::get_where($bank_account_id, $year, $month),
+			self::get_params($bank_account_id, $year, $month)
+		);
+
+		$amount_out = (float) $row['amount_out'];
+		$days = self::period_days(
+			$row['first_date'] === null ? null : $row['first_date'],
+			$row['last_date'] === null ? null : $row['last_date'],
+			$year,
+			$month
 		);
 
 		return [
 			'transaction_count' => (int) $row['transaction_count'],
 			'amount_in' => (float) $row['amount_in'],
-			'amount_out' => (float) $row['amount_out'],
+			'amount_out' => $amount_out,
 			'uncategorized' => (int) $row['uncategorized'],
-			'net' => (float) $row['amount_in'] - (float) $row['amount_out'],
+			'net' => (float) $row['amount_in'] - $amount_out,
+			'days' => $days,
+			'avg_per_day' => $days > 0 ? $amount_out / $days : 0.0,
 		];
 	}
 
 	/**
-	 * Get the internal transfer totals for the given filters
+	 * Get the biggest single outgoing transaction for the given filters
 	 *
-	 * Only outgoing legs are counted: every transfer between two own
-	 * accounts has exactly one, so both the count and the total amount
-	 * describe the number of transfers, not the number of rows.
+	 * Returns an empty array when the selection holds no outgoing
+	 * transaction.
 	 *
 	 * @access public
 	 * @param ?int $bank_account_id
 	 * @param ?int $year
-	 * @return array $transfers
+	 * @param ?int $month
+	 * @return array $biggest
 	 */
-	public static function get_transfers(?int $bank_account_id = null, ?int $year = null): array {
+	public static function get_biggest_outgoing(?int $bank_account_id = null, ?int $year = null, ?int $month = null): array {
 		$database = Database::get();
-		$where = 'WHERE `archived` IS NULL AND `internal` = 1';
-		$params = [];
-
-		if ($bank_account_id !== null) {
-			$where .= ' AND `bank_account_id` = ?';
-			$params[] = $bank_account_id;
-		}
-
-		if ($year !== null) {
-			$where .= ' AND YEAR(`value_date`) = ?';
-			$params[] = $year;
-		}
-
 		$row = $database->get_row(
-			'SELECT
-				COUNT(*) AS `transfer_count`,
-				COALESCE(SUM(CASE WHEN `amount` < 0 THEN -`amount` ELSE 0 END), 0) AS `total_moved`
+			'SELECT `amount`, `counterparty_name`, `communication`, `value_date`
 			FROM `bank_transaction`
-			' . $where,
-			$params
+			' . self::get_where($bank_account_id, $year, $month) . '
+			AND `amount` < 0
+			ORDER BY `amount` ASC
+			LIMIT 1',
+			self::get_params($bank_account_id, $year, $month)
 		);
 
+		if ($row === null || $row['amount'] === null) {
+			return [];
+		}
+
 		return [
-			'count' => (int) $row['transfer_count'],
-			'total' => (float) $row['total_moved'],
+			'amount' => abs((float) $row['amount']),
+			'counterparty_name' => $row['counterparty_name'],
+			'communication' => $row['communication'],
+			'value_date' => $row['value_date'],
 		];
 	}
 
@@ -100,24 +112,25 @@ class Bank_Stats {
 	 *
 	 * Rows come back ordered by period (YYYY-MM). When a year is given the
 	 * result is zero-filled for the twelve months of that year so charts
-	 * show a continuous axis.
+	 * show a continuous axis; a month filter returns just that month.
 	 *
 	 * @access public
 	 * @param ?int $bank_account_id
 	 * @param ?int $year
+	 * @param ?int $month
 	 * @return array $monthly
 	 */
-	public static function get_monthly(?int $bank_account_id = null, ?int $year = null): array {
+	public static function get_monthly(?int $bank_account_id = null, ?int $year = null, ?int $month = null): array {
 		$database = Database::get();
 		$rows = $database->get_all(
 			'SELECT DATE_FORMAT(`value_date`, \'%Y-%m\') AS `period`,
 				COALESCE(SUM(CASE WHEN `amount` > 0 THEN `amount` ELSE 0 END), 0) AS `amount_in`,
 				COALESCE(SUM(CASE WHEN `amount` < 0 THEN -`amount` ELSE 0 END), 0) AS `amount_out`
 			FROM `bank_transaction`
-			' . self::get_where($bank_account_id, $year) . '
+			' . self::get_where($bank_account_id, $year, $month) . '
 			GROUP BY `period`
 			ORDER BY `period`',
-			self::get_params($bank_account_id, $year)
+			self::get_params($bank_account_id, $year, $month)
 		);
 
 		$monthly = [];
@@ -130,13 +143,17 @@ class Bank_Stats {
 			];
 		}
 
+		if ($month !== null) {
+			return array_values($monthly);
+		}
+
 		if ($year === null) {
 			return array_values($monthly);
 		}
 
 		$filled = [];
-		for ($month = 1; $month <= 12; $month++) {
-			$period = $year . '-' . str_pad((string) $month, 2, '0', STR_PAD_LEFT);
+		for ($month_number = 1; $month_number <= 12; $month_number++) {
+			$period = $year . '-' . str_pad((string) $month_number, 2, '0', STR_PAD_LEFT);
 			if (isset($monthly[$period]) === true) {
 				$filled[] = $monthly[$period];
 			} else {
@@ -161,9 +178,10 @@ class Bank_Stats {
 	 * @access public
 	 * @param ?int $bank_account_id
 	 * @param ?int $year
+	 * @param ?int $month
 	 * @return array $category_totals
 	 */
-	public static function get_category_totals(?int $bank_account_id = null, ?int $year = null): array {
+	public static function get_category_totals(?int $bank_account_id = null, ?int $year = null, ?int $month = null): array {
 		$database = Database::get();
 		$rows = $database->get_all(
 			'SELECT
@@ -175,10 +193,10 @@ class Bank_Stats {
 				COALESCE(SUM(CASE WHEN `bt`.`amount` < 0 THEN -`bt`.`amount` ELSE 0 END), 0) AS `amount_out`
 			FROM `bank_transaction` `bt`
 			LEFT JOIN `finance_category` `fc` ON `fc`.`id` = `bt`.`finance_category_id`
-			' . self::get_where($bank_account_id, $year, 'bt') . '
+			' . self::get_where($bank_account_id, $year, $month, 'bt') . '
 			GROUP BY `bt`.`finance_category_id`, `fc`.`name`, `fc`.`color`
 			ORDER BY `amount_out` DESC',
-			self::get_params($bank_account_id, $year)
+			self::get_params($bank_account_id, $year, $month)
 		);
 
 		$category_totals = [];
@@ -214,10 +232,11 @@ class Bank_Stats {
 	 * @access public
 	 * @param ?int $bank_account_id
 	 * @param ?int $year
+	 * @param ?int $month
 	 * @param int $top_categories
 	 * @return array $category_monthly
 	 */
-	public static function get_category_monthly(?int $bank_account_id = null, ?int $year = null, int $top_categories = 8): array {
+	public static function get_category_monthly(?int $bank_account_id = null, ?int $year = null, ?int $month = null, int $top_categories = 8): array {
 		$database = Database::get();
 		$rows = $database->get_all(
 			'SELECT
@@ -227,11 +246,11 @@ class Bank_Stats {
 				SUM(-`bt`.`amount`) AS `amount_out`
 			FROM `bank_transaction` `bt`
 			LEFT JOIN `finance_category` `fc` ON `fc`.`id` = `bt`.`finance_category_id`
-			' . self::get_where($bank_account_id, $year, 'bt') . '
+			' . self::get_where($bank_account_id, $year, $month, 'bt') . '
 			AND `bt`.`amount` < 0
 			GROUP BY `period`, `category_name`, `category_color`
 			ORDER BY `period`',
-			self::get_params($bank_account_id, $year)
+			self::get_params($bank_account_id, $year, $month)
 		);
 
 		$periods = [];
@@ -264,10 +283,15 @@ class Bank_Stats {
 		ksort($periods);
 		$periods = array_keys($periods);
 
-		if ($year !== null) {
+		if ($month !== null) {
+			// A single month: keep only its own period
+			$periods = array_values(array_filter($periods, function($period) use ($month) {
+				return (int) substr($period, 5, 2) === $month;
+			}));
+		} elseif ($year !== null) {
 			$periods = [];
-			for ($month = 1; $month <= 12; $month++) {
-				$periods[] = $year . '-' . str_pad((string) $month, 2, '0', STR_PAD_LEFT);
+			for ($month_number = 1; $month_number <= 12; $month_number++) {
+				$periods[] = $year . '-' . str_pad((string) $month_number, 2, '0', STR_PAD_LEFT);
 			}
 		}
 
@@ -320,10 +344,11 @@ class Bank_Stats {
 	 * @access public
 	 * @param ?int $bank_account_id
 	 * @param ?int $year
+	 * @param ?int $month
 	 * @param int $limit
 	 * @return array $counterparties
 	 */
-	public static function get_top_counterparties(?int $bank_account_id = null, ?int $year = null, int $limit = 10): array {
+	public static function get_top_counterparties(?int $bank_account_id = null, ?int $year = null, ?int $month = null, int $limit = 10): array {
 		$database = Database::get();
 		$rows = $database->get_all(
 			'SELECT
@@ -332,13 +357,13 @@ class Bank_Stats {
 				COALESCE(SUM(CASE WHEN `amount` > 0 THEN `amount` ELSE 0 END), 0) AS `amount_in`,
 				COALESCE(SUM(CASE WHEN `amount` < 0 THEN -`amount` ELSE 0 END), 0) AS `amount_out`
 			FROM `bank_transaction`
-			' . self::get_where($bank_account_id, $year) . '
+			' . self::get_where($bank_account_id, $year, $month) . '
 			AND `counterparty_name` IS NOT NULL
 			AND `counterparty_name` <> \'\'
 			GROUP BY `counterparty_name`
 			ORDER BY `amount_out` DESC, `amount_in` DESC
 			LIMIT ' . $limit,
-			self::get_params($bank_account_id, $year)
+			self::get_params($bank_account_id, $year, $month)
 		);
 
 		$counterparties = [];
@@ -356,6 +381,42 @@ class Bank_Stats {
 	}
 
 	/**
+	 * Get the number of calendar days a selection spans
+	 *
+	 * A selected month is its day count, a selected year the length of
+	 * that year; without a year the span between the first and the last
+	 * transaction is used (at least one day).
+	 *
+	 * @access private
+	 * @param ?string $first_date
+	 * @param ?string $last_date
+	 * @param ?int $year
+	 * @param ?int $month
+	 * @return int $days
+	 */
+	private static function period_days(?string $first_date, ?string $last_date, ?int $year, ?int $month): int {
+		if ($year !== null && $month !== null) {
+			return (int) (new \DateTime($year . '-' . str_pad((string) $month, 2, '0', STR_PAD_LEFT) . '-01'))->format('t');
+		}
+
+		if ($year !== null) {
+			$first = new \DateTime($year . '-01-01');
+			$last = new \DateTime($year . '-12-31');
+
+			return $last->diff($first)->days + 1;
+		}
+
+		if ($first_date === null || $last_date === null) {
+			return 0;
+		}
+
+		$first = new \DateTime($first_date);
+		$last = new \DateTime($last_date);
+
+		return max(1, $last->diff($first)->days + 1);
+	}
+
+	/**
 	 * Build the where clause for the given filters
 	 *
 	 * The optional alias prefixes every column so the same clause works on
@@ -365,10 +426,11 @@ class Bank_Stats {
 	 * @access private
 	 * @param ?int $bank_account_id
 	 * @param ?int $year
+	 * @param ?int $month
 	 * @param string $alias
 	 * @return string $where
 	 */
-	private static function get_where(?int $bank_account_id, ?int $year, string $alias = ''): string {
+	private static function get_where(?int $bank_account_id, ?int $year, ?int $month = null, string $alias = ''): string {
 		$prefix = '';
 		if ($alias !== '') {
 			$prefix = '`' . $alias . '`.';
@@ -386,6 +448,10 @@ class Bank_Stats {
 			$where .= ' AND YEAR(' . $prefix . '`value_date`) = ?';
 		}
 
+		if ($month !== null) {
+			$where .= ' AND MONTH(' . $prefix . '`value_date`) = ?';
+		}
+
 		return $where;
 	}
 
@@ -395,9 +461,10 @@ class Bank_Stats {
 	 * @access private
 	 * @param ?int $bank_account_id
 	 * @param ?int $year
+	 * @param ?int $month
 	 * @return array $params
 	 */
-	private static function get_params(?int $bank_account_id, ?int $year): array {
+	private static function get_params(?int $bank_account_id, ?int $year, ?int $month = null): array {
 		$params = [];
 
 		if ($bank_account_id !== null) {
@@ -406,6 +473,10 @@ class Bank_Stats {
 
 		if ($year !== null) {
 			$params[] = $year;
+		}
+
+		if ($month !== null) {
+			$params[] = $month;
 		}
 
 		return $params;

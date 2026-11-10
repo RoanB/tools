@@ -4,8 +4,9 @@
  *
  * Statistics dashboard for the finances area: totals, category breakdowns
  * (donut, per-month stacked, incoming versus outgoing) and the monthly
- * evolution. The account and year filters are the context of the page and
- * apply to every chart at once.
+ * evolution. The account, year and month filters are the context of the
+ * page and apply to every chart at once; a month selection drops the
+ * month-by-month charts.
  *
  * @author Roan Buysse <roan@buysse.be>
  */
@@ -38,6 +39,12 @@ class Stats extends Module {
 	/**
 	 * Display the statistics dashboard
 	 *
+	 * The account, year and month filters are the context of the page and
+	 * apply to every chart at once. A month filter is only meaningful
+	 * together with a year; the monthly evolution charts are dropped
+	 * when a single month is selected (they have nothing to compare
+	 * against).
+	 *
 	 * @access public
 	 */
 	public function display(): void {
@@ -46,20 +53,28 @@ class Stats extends Module {
 
 		$account_filter = $this->get_account_filter($bank_accounts);
 		$year_filter = $this->get_year_filter();
+		$month_filter = $this->get_month_filter($year_filter);
 
 		$bank_account_id = $account_filter === '' ? null : (int) $account_filter;
 		$year = $year_filter === '' ? null : (int) $year_filter;
+		$month = $month_filter === '' ? null : (int) $month_filter;
 
 		$template->assign('bank_accounts', $bank_accounts);
 		$template->assign('years', $this->get_all_years());
+		$template->assign('months', [
+			1 => 'January', 2 => 'February', 3 => 'March', 4 => 'April',
+			5 => 'May', 6 => 'June', 7 => 'July', 8 => 'August',
+			9 => 'September', 10 => 'October', 11 => 'November', 12 => 'December',
+		]);
 		$template->assign('filter_account', $account_filter);
 		$template->assign('filter_year', $year_filter);
+		$template->assign('filter_month', $month_filter);
 
-		$template->assign('totals', \Bank_Stats::get_totals($bank_account_id, $year));
-		$template->assign('transfers', \Bank_Stats::get_transfers($bank_account_id, $year));
-		$template->assign('counterparties', \Bank_Stats::get_top_counterparties($bank_account_id, $year));
+		$template->assign('totals', \Bank_Stats::get_totals($bank_account_id, $year, $month));
+		$template->assign('biggest', \Bank_Stats::get_biggest_outgoing($bank_account_id, $year, $month));
+		$template->assign('counterparties', \Bank_Stats::get_top_counterparties($bank_account_id, $year, $month));
 
-		$category_totals = \Bank_Stats::get_category_totals($bank_account_id, $year);
+		$category_totals = \Bank_Stats::get_category_totals($bank_account_id, $year, $month);
 		$template->assign('category_totals', $category_totals);
 
 		$total_out = 0.0;
@@ -67,13 +82,41 @@ class Stats extends Module {
 			$total_out += $category_total['amount_out'];
 		}
 
-		$template->assign('chart_data', [
+		// The month-by-month charts make no sense for a single month
+		$chart_data = [
 			'year' => $year,
-			'monthly' => \Bank_Stats::get_monthly($bank_account_id, $year),
-			'category_totals' => \Bank_Stats::get_category_totals($bank_account_id, $year),
-			'category_monthly' => \Bank_Stats::get_category_monthly($bank_account_id, $year),
+			'category_totals' => \Bank_Stats::get_category_totals($bank_account_id, $year, $month),
 			'total_out' => $total_out,
-		]);
+		];
+		if ($month === null) {
+			$chart_data['monthly'] = \Bank_Stats::get_monthly($bank_account_id, $year);
+			$chart_data['category_monthly'] = \Bank_Stats::get_category_monthly($bank_account_id, $year);
+		}
+
+		$template->assign('chart_data', $chart_data);
+	}
+
+	/**
+	 * Get the month filter from the url
+	 *
+	 * One of '' (all months) or 1..12. A month is only applied when a
+	 * specific year is selected: "all years" collapses the filter.
+	 *
+	 * @access private
+	 * @param string $year_filter
+	 * @return string $month_filter
+	 */
+	private function get_month_filter(string $year_filter): string {
+		if ($year_filter === '' || array_key_exists('month', $_GET) === false) {
+			return '';
+		}
+
+		$month_filter = (string) $_GET['month'];
+		if (is_numeric($month_filter) === false || (int) $month_filter < 1 || (int) $month_filter > 12) {
+			return '';
+		}
+
+		return (string) (int) $month_filter;
 	}
 
 	/**

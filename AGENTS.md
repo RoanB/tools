@@ -386,8 +386,10 @@ Key pieces:
 - `lib/model/Bank/Account.php` — `Bank_Account` (`get_by_iban()`,
   `get_all_uploadable()` — the active non-savings accounts that user-facing
   lists show).
-- `lib/model/Bank/Transaction.php` — `Bank_Transaction` (`get_by_import_key()`,
-  `get_stats()`, `get_recent()`, `is_incoming()`).
+- `lib/model/Bank/Transaction.php` — `Bank_Transaction` (`get_by_import_key()` —
+  compares the transaction number with leading zeros stripped so a bank's
+  number-format change cannot defeat the dedup, `get_stats()`, `get_recent()`,
+  `is_incoming()`).
 - `lib/model/Finance/Category.php` — `Finance_Category` (`get_rules()`,
   `get_transaction_count()`).
 - `lib/model/Finance/Rule.php` — `Finance_Rule`; the file and its sibling
@@ -417,9 +419,13 @@ Only the KBC format exposes its own account; Keytrade files carry no
 own-account column and always fall back to the chosen one.
 A file that detects to no configured account is imported into the account
 chosen at preview. Warning when the file's detected account differs from the
-selected one is replaced by that authoritative-target rule. Cleanup script:
+selected one is replaced by that authoritative-target rule. Cleanup scripts:
 `util/bin/cleanup_kbc.php` hard-deletes all
-`bank_transaction` rows in KBC accounts (dry-run by default, `--execute` deletes).
+`bank_transaction` rows in KBC accounts (dry-run by default, `--execute` deletes),
+and `util/bin/cleanup_duplicates.php` finds cross-batch duplicates — same
+account + value date + amount, imported in a different batch — and archives
+the newer twin (dry-run by default, `--execute` archives; soft delete, so
+restorable from the transactions archive).
 
 **Savings accounts** (`bank_account.savings`, migration
 `20261106_000002_savings_bank_account`): accounts flagged as savings never
@@ -499,20 +505,26 @@ edge case. Read `spec/spec-process-finance-flow.md` before changing this flow.
 
 `/finances/stats` (`Finances\Stats`, template `finances/stats.twig`,
 "Statistics" sidebar item in both variants) is a read-only dashboard over the
-imported transactions, scoped by two `data-keep-params` selects: account
-(empty = all accounts, the default) and year (defaults to the current year;
+imported transactions, scoped by three `data-keep-params` selects: account
+(empty = all accounts, the default), year (defaults to the current year;
 an explicitly empty value selects all years — `get_year_filter()` checks
-`array_key_exists` so "All years" stays reachable). All aggregations live in
+`array_key_exists` so "All years" stays reachable) and month (1..12, only
+applied together with a year; "All years" collapses and disables it). All
+aggregations live in
 `lib/component/Bank/Stats.php` (`Bank_Stats`, static methods taking
-`?int $bank_account_id` and `?int $year`): `get_totals()`, `get_monthly()`
+`?int $bank_account_id`, `?int $year` and `?int $month`): `get_totals()`
+(with `avg_per_day` burn rate + `days`), `get_biggest_outgoing()`,
+`get_monthly()`
 (zero-filled for the 12 months of a selected year), `get_category_totals()`
 (LINK JOIN on `finance_category`, uncategorized grouped under a grey row,
 ordered by outgoing desc), `get_category_monthly()` (pivoted chart-ready
 `periods` + `series`, top 8 categories by outgoing with the rest folded into
 "Other") and `get_top_counterparties()` (top N counterparties by outgoing,
 each linking to `/finances/transactions?search=<name>`). All queries exclude
-archived rows and share a private `get_where()`/`get_params()` pair with an
-optional table alias for the joined queries.
+archived rows and internal transfers unconditionally — the dashboard shows
+nothing about internal transfers anywhere — and share a private
+`get_where()`/`get_params()` pair with an optional table alias for the
+joined queries and an optional `MONTH(value_date)` condition.
 
 The charts render client-side with ApexCharts, which ships inside the tabler
 npm package — load `/tabler--core/dist/libs/apexcharts/dist/apexcharts.css`
@@ -521,11 +533,23 @@ module assigns the data as plain arrays; the template embeds them with
 `{{ chart_data|json_encode|raw }}` and page JS builds the charts (area chart
 for monthly in/out/net, donut for spending per category — top 10 slices plus
 "Other", stacked bars per category per month, horizontal bars in vs out,
-breakdown table with a share-of-outgoings progress bar). Card numbers use the
-`font-display` class so they match the Fredoka page heading; chart typography
-is standardised (11px axis labels, 12px legends).
+breakdown table with a share-of-outgoings progress bar). Each render call is
+guarded by its chart div's existence: when a month filter is active the
+module skips `get_monthly()`/`get_category_monthly()` and the template drops
+the two month-by-month cards. Card numbers use the `font-display` class so
+they match the Fredoka page heading; chart typography is standardised (11px
+axis labels, 12px legends); chart text colours are **theme-aware** —
+read from `data-bs-theme` at render time via `chart_text_color()` /
+`chart_muted_color()` / `chart_surface_color()` helpers, charts are
+created through the `stats_chart(selector, options)` helper and
+re-rendered on the `themechange` event that `base.js` dispatches on a
+theme toggle (ApexCharts bakes text colours in at render, so a theme
+flip without re-render leaves unreadable labels); card-header subtitles use the inline
+`card-title` + small span pattern (transactions.twig style), not a separate
+subtitle div.
 
-Layout emphasis: the six summary cards wrap in two rows of three
+Layout emphasis: the seven summary cards (incoming, outgoing, net, outgoing
+per day, biggest expense, transactions, uncategorized) wrap in rows of three
 (`col-6 col-md-4`), the spending-per-category donut is the first chart card
 (`card-accent`), followed by monthly evolution, the stacked per-category
 chart, in-vs-out bars next to the top-counterparties table, and the category
@@ -541,6 +565,78 @@ the chart grid is replaced by an empty-state card and the JS skips rendering.
 - **Category merge**: `Finance_Category::merge_into()` moves all transactions (archived included) and active rules of a source category into a target and archives the source, atomically (`transaction_begin/commit/rollback`); UI at `?action=category_merge`. Rules keep their global sort order — only ownership moves.
 - **Conflict report**: `Bank_Rule_Analysis::analyze()` (lib/component/Bank/Rule/Analysis.php — underscore maps to directories) simulates all active rules over all active non-internal transactions and reports dead rules and shadow pairs (upper category stealing from lower ones); read-only, `?action=rule_conflicts`. Takes ~10s for the current data set; acceptable for an on-demand settings action.
 - **CSV round trip**: `/finances/transactions?action=export` streams the current filter as CSV (id, date, counterparty, description, communication, amount, account, category). Edit the category column offline and re-upload via `?action=import_categories` (preview in `$_SESSION['finance_category_import']`, apply via `?action=import_categories_confirm`, consumed once). Only category changes apply, matched by id + exact category name.
+
+### Fallforce (SRT fall force calculator)
+
+`/fallforce` (`App\Front\Module\Fallforce`, template `fallforce.twig`) is a
+read-only client-side calculator: peak force of a drop on a rope of given
+length and stiffness, `F = mg + √(m²g² + 2·EA·mg·h/L)`. No database, no
+persistence; all rope data lives in the module's `rope_types` array
+(label, `ea`, `mbs`, `knot`) and the page JS reads it from `data-*`
+attributes. The page is **public** — no `secure()` method — so
+`tools.buysse.io/fallforce` is shareable without login; the base layout's
+navbar renders only for logged-in users (`{% if user.email is not empty %}`
+wraps the whole `<header>`), which keeps app chrome off the public page.
+Anonymous requests to gated areas must still 302 to `/login`. Read
+`spec/spec-tool-fallforce.md` before touching the model,
+the thresholds or the wording — several claims were corrected against SRT
+practice and datasheets (no "FF > 0.3 is atypical" claim, the certified-hold
+framing, the FF ≤ 2 physical ceiling).
+
+Calibration: **EA is the linear datasheet value** (≈ 1.47 kN ÷ stretch at
+150 kg), no stiffening factor — it closes against Beal's published EN 1891
+test forces when the system absorbs ~750 J (knot tightening + harness/body).
+Two red outcome boxes, both built on that 750 J: the **rope-failure box**
+fires when the model peak exceeds `√(knot² + 2·(EA/L)·E_sys)`, the
+**body-injury box** when the felt force
+`mg + √(max(0, mg² + 2·(EA/L)·(mg·h − E_sys)))` exceeds 10 kN (6 kN is the
+injury-risk guideline, but ordinary FF 1 catches on semi-static feel 7-8.5 kN
+and must not alert). The rope-type select is wrapped by select2 — bind it
+with jQuery `on('input change')`, a native listener never hears select2's
+change (see Select2 above).
+
+### Prompt builder (AI website prompt generator)
+
+`/promptbuilder` (`App\Front\Module\Promptbuilder`, template
+`promptbuilder.twig`) is **public** (no `secure()` method): a five-card
+form that assembles a structured prompt for AI website generators and
+previews it live. Ported from the standalone `../promptbuilder`
+prototype (generator logic kept, chrome moved to tabler). Guided
+choices are dropdowns and chip groups — never free text where a bounded
+set exists; the **hosting dropdown** drives the server-config paragraph
+(Apache .htaccess / nginx.conf / `_redirects` / `vercel.json` / GitHub
+Pages) that the prototype hardcoded as Apache.
+
+**History** (`prompt` table, migration `20261110_000001_prompt`,
+`lib/model/Prompt.php`): signed-in users can save a generated prompt
+(one row per save: title, target tool, format, the prompt `content`
+and the complete form state as `inputs` JSON) and get a history panel
+with Load (restores the form from the JSON) and Delete (soft
+`archive()`). The history is strictly owner-scoped: anonymous calls to
+`?action=save` / `?action=delete` answer 403, and delete verifies
+ownership because ids are guessable. The save/delete actions answer
+JSON and set `$this->template = false` so the dispatcher skips the
+template render.
+
+### Dark mode (site-wide)
+
+Real dark mode via Tabler's `data-bs-theme` attribute on `<html>`
+(`spec-design-dark-mode.md`): an inline bootstrap script in both layout
+heads applies the stored (`localStorage.theme`) or system preference
+before the CSS paints. `.theme-toggle` ghost buttons in the navbar
+(signed-in), the footer (all pages — the public tools have no navbar)
+and the login page cycle **auto → light → dark → auto** (auto = system
+preference, stored as the absence of the key; icons circle-half / sun /
+moon), wired from `base.js` (plain buttons — the page loader must not
+fire). `base.css` must re-declare
+every light-specific `:root` variable in a `[data-bs-theme="dark"]`
+block **including the gray ramp** (this file loads after tabler and
+would otherwise pin the light palette in both themes; tabler composes
+every dark surface from its blue-tinted gray scale, so the ramp is
+re-tuned green) plus explicit dark skins for the components
+that hardcode light colours: plain badges, the page loader and the
+select2 bootstrap-5 theme surfaces. Both `base.js` copies stay
+md5-identical.
 
 ## Permissions
 
